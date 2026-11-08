@@ -99,7 +99,7 @@ const schema = a.schema({
     ])
     .authorization((allow) => [allow.group("ADMINS").to(["read", "update"])]),
 
-  ContactPurpose: a.enum(["INTERVIEW", "SIX_MONTH_REVISIT"]),
+  ContactPurpose: a.enum(["INTERVIEW", "SIX_MONTH_REVISIT", "COMMUNITY"]),
 
   Contact: a
     .model({
@@ -170,6 +170,27 @@ const schema = a.schema({
     count: a.integer().required(),
     respondents: a.integer().required(),
   }),
+
+  ParticipantEntry: a.customType({
+    entryNumber: a.integer(),
+    submittedOn: a.date().required(),
+    tone: a.string(),
+    toneScore: a.float(),
+    words: a.integer(),
+    feelings: a.string().array(),
+    aiUseFrequency: a.string(),
+    mainAiTool: a.string(),
+    noticedChange: a.string(),
+  }),
+
+  // A participant's own entries, oldest first, for the "over time" view. The
+  // private participant code proves who is asking; no story text is returned.
+  myEntries: a
+    .query()
+    .arguments({ participantCode: a.string().required() })
+    .returns(a.ref("ParticipantEntry").array())
+    .authorization((allow) => [allow.guest(), allow.authenticated()])
+    .handler(a.handler.function(participant)),
 
   // Rounded counts for the charts shown after a story; small groups are left out.
   communityStats: a
@@ -250,6 +271,7 @@ const schema = a.schema({
       source: a.string().required(),
       testimonyId: a.id(),
       participantCode: a.string(),
+      purpose: a.string(), // "SIX_MONTH_REVISIT" (default) or "COMMUNITY"
     })
     .returns(a.boolean())
     .authorization((allow) => [allow.guest(), allow.authenticated()])

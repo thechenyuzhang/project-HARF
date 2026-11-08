@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { AppSyncResolverEvent } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, PutCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import {
   ANALYTICS_EVENTS,
   CONSENT_VERSION,
@@ -9,6 +9,7 @@ import {
   normalizeParticipantCode,
 } from "../../../src/lib/harf";
 import { summarizeCommunity, type CommunityRecord, type CommunityRow } from "../../../src/lib/community";
+import { readTone } from "../../../src/lib/tone";
 import { EMAIL_PATTERN, participantRefFor } from "../shared/participant-ref";
 
 const db = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -50,10 +51,11 @@ async function requestRevisit(args: Record<string, unknown>) {
     throw new ValidationError("The consent text has changed. Please reload the page and review it again.");
   }
   const source = args.source === "survey" ? "survey" : "story";
+  const community = args.purpose === "COMMUNITY";
   let testimonyId: string | undefined;
   let ref: string | undefined;
 
-  if (source === "story") {
+  if (source === "story" && !community) {
     // The participant code proves this person wrote the testimony.
     testimonyId = typeof args.testimonyId === "string" ? args.testimonyId : undefined;
     ref = participantRef(args.participantCode);
@@ -71,12 +73,12 @@ async function requestRevisit(args: Record<string, unknown>) {
         __typename: "Contact",
         createdAt: now,
         updatedAt: now,
-        purpose: "SIX_MONTH_REVISIT",
+        purpose: community ? "COMMUNITY" : "SIX_MONTH_REVISIT",
         source,
         testimonyId,
         participantRef: ref,
         email: email(args.email),
-        remindAfter: inSixMonths(),
+        remindAfter: community ? undefined : inSixMonths(),
         consentVersion: CONSENT_VERSION,
       },
     }),
@@ -138,7 +140,10 @@ async function track(args: Record<string, unknown>) {
 const STATS_TTL = 5 * 60 * 1000;
 let statsCache: { at: number; rows: CommunityRow[] } | null = null;
 
-/** Guests can call this, so it reads only the fields it counts and at most once per five minutes. */
+/**
+ * Guests can call this, so it reads only the fields it counts and at most once per five minutes.
+ * Story text is read to count words and never leaves this function.
+ */
 async function communityStats() {
   if (statsCache && Date.now() - statsCache.at < STATS_TTL) return statsCache.rows;
   const records: CommunityRecord[] = [];
@@ -148,7 +153,7 @@ async function communityStats() {
       new ScanCommand({
         TableName: TESTIMONY_TABLE,
         ProjectionExpression:
-          "participantRef, synthetic, editorialStatus, tone, feelings, aiUseFrequency, mainAiTool, noticedChange",
+          "participantRef, synthetic, editorialStatus, tone, feelings, aiUseFrequency, mainAiTool, noticedChange, originalText",
         ExclusiveStartKey,
       }),
     );
@@ -160,6 +165,45 @@ async function communityStats() {
   return rows;
 }
 
+/** A participant's own entries, oldest first: broad readings only, never the text itself. */
+async function myEntries(args: Record<string, unknown>) {
+  const ref = participantRef(args.participantCode);
+  if (!ref) throw new ValidationError("Please enter your participant code.");
+  const items: Record<string, unknown>[] = [];
+  let ExclusiveStartKey: Record<string, unknown> | undefined;
+  do {
+    const page = await db.send(
+      new QueryCommand({
+        TableName: TESTIMONY_TABLE,
+        IndexName: "byParticipant",
+        KeyConditionExpression: "participantRef = :ref",
+        ExpressionAttributeValues: { ":ref": ref },
+        ExclusiveStartKey,
+      }),
+    );
+    items.push(...(page.Items ?? []));
+    ExclusiveStartKey = page.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return items
+    .filter((t) => t.editorialStatus !== "WITHDRAWN")
+    .sort((a, b) => String(a.submittedAt).localeCompare(String(b.submittedAt)))
+    .map((t) => {
+      const text = typeof t.originalText === "string" ? t.originalText : "";
+      const reading = readTone(text);
+      return {
+        entryNumber: t.entryNumber ?? null,
+        submittedOn: String(t.submittedAt).slice(0, 10),
+        tone: reading?.tone ?? null,
+        toneScore: reading ? Math.round(reading.score * 100) / 100 : null,
+        words: text.trim() ? text.trim().split(/\s+/).length : 0,
+        feelings: Array.isArray(t.feelings) ? t.feelings : [],
+        aiUseFrequency: t.aiUseFrequency ?? null,
+        mainAiTool: t.mainAiTool ?? null,
+        noticedChange: t.noticedChange ?? null,
+      };
+    });
+}
+
 type ResolverEvent = AppSyncResolverEvent<Record<string, unknown>> & { fieldName?: string };
 
 export const handler = async (event: ResolverEvent) => {
@@ -169,6 +213,7 @@ export const handler = async (event: ResolverEvent) => {
     if (fieldName === "requestWithdrawal") return await requestWithdrawal(event.arguments);
     if (fieldName === "track") return await track(event.arguments);
     if (fieldName === "communityStats") return await communityStats();
+    if (fieldName === "myEntries") return await myEntries(event.arguments);
     throw new Error(`Unsupported operation ${fieldName}`);
   } catch (err) {
     if (err instanceof ValidationError) throw new Error(err.message);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CommunityInvite } from "@/components/community-invite";
 import { ContributionThanks } from "@/components/contribution-thanks";
 import { track } from "@/lib/analytics";
 
@@ -51,8 +52,11 @@ export function SurveyEmbed() {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg bg-card shadow-sm ring-1 ring-rule">
-      <iframe src={EMBED_URL} title="HARF survey" className="h-[760px] w-full" />
-    </div>
+    <>
+      <div className="overflow-hidden rounded-lg bg-card shadow-sm ring-1 ring-rule">
+        <iframe src={EMBED_URL} title="HARF survey" className="h-[760px] w-full" />
+      </div>
+      <CommunityInvite />
+    </>
   );
 }
