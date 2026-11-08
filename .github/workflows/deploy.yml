@@ -1,0 +1,35 @@
+# Deploys the backend and the static site to Amplify (app d1teugon3t49oi) on
+# every push to main, with the same script used for manual deploys.
+# AWS access comes from the role harf-github-deploy via GitHub's OIDC token;
+# that role trusts only this repository's main branch, and no AWS keys are stored here.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::925450674585:role/harf-github-deploy
+          aws-region: us-east-2
+      - run: npm ci
+      - run: scripts/deploy.sh
