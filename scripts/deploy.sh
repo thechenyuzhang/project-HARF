@@ -15,6 +15,9 @@ export AWS_REGION="${AWS_REGION:-us-east-2}"
 echo "→ Deploying backend for $APP_ID/$BRANCH"
 CI=1 npx ampx pipeline-deploy --branch "$BRANCH" --app-id "$APP_ID"
 
+echo "→ Writing amplify_outputs.json"
+npx ampx generate outputs --branch "$BRANCH" --app-id "$APP_ID"
+
 echo "→ Building site"
 npm run build
 
