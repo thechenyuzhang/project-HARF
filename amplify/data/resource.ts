@@ -183,6 +183,19 @@ const schema = a.schema({
     noticedChange: a.string(),
   }),
 
+  CommunityTrendPoint: a.customType({
+    period: a.string().required(),
+    people: a.integer().required(),
+    toneScore: a.float(),
+  }),
+
+  // Month-by-month community tone; months with fewer than 5 writers are left out.
+  communityTrend: a
+    .query()
+    .returns(a.ref("CommunityTrendPoint").array())
+    .authorization((allow) => [allow.guest(), allow.authenticated()])
+    .handler(a.handler.function(participant)),
+
   // A participant's own entries, oldest first, for the "over time" view. The
   // private participant code proves who is asking; no story text is returned.
   myEntries: a
