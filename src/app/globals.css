@@ -92,3 +92,68 @@ h3 {
   --amplify-components-tabs-item-active-border-color: var(--ink);
   --amplify-fonts-default-variable: var(--font-inter);
 }
+
+/* /universe: the night-sky route. The shared header and footer go dark with it. */
+body:has(.universe-page) {
+  background: #03050d;
+}
+body:has(.universe-page) > header {
+  background: rgb(3 5 13 / 0.55);
+  border-color: rgb(255 255 255 / 0.08);
+  color: #fff;
+}
+body:has(.universe-page) > header nav a:not(.bg-accent) {
+  color: rgb(255 255 255 / 0.75);
+}
+body:has(.universe-page) > header nav a:not(.bg-accent):hover {
+  color: #fff;
+}
+body:has(.universe-page) > footer {
+  margin-top: 0;
+}
+
+@keyframes universe-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2) rotate(12deg);
+    opacity: 0.75;
+  }
+}
+.universe-pulse {
+  animation: universe-pulse 3.2s ease-in-out infinite;
+}
+
+@keyframes universe-caption-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+.universe-caption {
+  animation: universe-caption-in 0.6s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .universe-pulse,
+  .universe-caption {
+    animation: none;
+  }
+}
+
+@keyframes universe-born {
+  0% {
+    transform: scale(6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+}
+.universe-born {
+  animation: universe-born 0.9s ease-out;
+}
