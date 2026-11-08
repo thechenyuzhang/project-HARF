@@ -267,9 +267,9 @@ export function UniverseSky() {
 
       // Cursor parallax: deeper layers drift less.
       if (!reduced) {
-        mouse.ex += (mouse.x - mouse.ex) * 0.06;
-        mouse.ey += (mouse.y - mouse.ey) * 0.06;
-        const depths = [10, 22, 36];
+        mouse.ex += (mouse.x - mouse.ex) * 0.025;
+        mouse.ey += (mouse.y - mouse.ey) * 0.025;
+        const depths = [2, 4, 7];
         parallaxRefs.current.forEach((el, i) => {
           if (el)
             el.style.transform = `translate3d(${-mouse.ex * depths[i]}px, ${-mouse.ey * depths[i]}px, 0)`;
@@ -279,7 +279,7 @@ export function UniverseSky() {
       // Fast timelapse at the top, settling to a still sky as you scroll in.
       const speed = reduced ? 0 : 1 - ramp(0.1, 0.34, prog);
       const prev = angle;
-      angle += 0.32 * speed * dt;
+      angle += 0.11 * speed * dt;
       skyTime += dt * 1000 * (1 + (SKY_SPEED - 1) * speed);
       if (skyClockRef.current) {
         skyClockRef.current.textContent = new Date(skyTime).toLocaleTimeString(
@@ -985,21 +985,68 @@ function Node({
         transform: `translate(-50%, -${star / 2}px)`,
       }}
     >
+      <StarGlint size={star} hue={hue} twinkle={pulse} />
       <span
-        className={`block rounded-full ${pulse ? "universe-pulse" : ""}`}
-        style={{
-          width: star,
-          height: star,
-          background: "#fff",
-          boxShadow: `0 0 ${star * 1.5}px ${star / 2}px ${hue}`,
-        }}
-      />
-      <span
-        className={`mt-1.5 whitespace-nowrap leading-none ${labelClass}`}
+        className={`mt-2.5 whitespace-nowrap leading-none ${labelClass}`}
         style={{ textShadow: "0 0 12px rgba(0,0,0,0.9)" }}
       >
         {label}
       </span>
     </Tag>
+  );
+}
+
+/** A lens-flare star: white core, coloured halo and four diffraction spikes. */
+function StarGlint({
+  size,
+  hue,
+  twinkle,
+}: {
+  size: number;
+  hue: string;
+  twinkle?: boolean;
+}) {
+  const spike = size * (twinkle ? 6 : 4.5);
+  const thin = Math.max(1, size / 5);
+  const beam = (angle: number, length: number, alpha: number) => (
+    <span
+      className="absolute left-1/2 top-1/2"
+      style={{
+        width: length,
+        height: thin,
+        marginLeft: -length / 2,
+        marginTop: -thin / 2,
+        transform: `rotate(${angle}deg)`,
+        opacity: alpha,
+        background: `linear-gradient(90deg, transparent, ${hue} 35%, #fff 50%, ${hue} 65%, transparent)`,
+        borderRadius: thin,
+      }}
+    />
+  );
+  return (
+    <span className="relative block" style={{ width: size, height: size }}>
+      <span className={`absolute inset-0 ${twinkle ? "universe-pulse" : ""}`}>
+        <span
+          className="absolute left-1/2 top-1/2 rounded-full"
+          style={{
+            width: size * 5,
+            height: size * 5,
+            marginLeft: (-size * 5) / 2,
+            marginTop: (-size * 5) / 2,
+            background: `radial-gradient(circle, ${hue}aa 0%, ${hue}33 35%, transparent 70%)`,
+          }}
+        />
+        {beam(0, spike, 1)}
+        {beam(90, spike, 1)}
+        {beam(45, spike * 0.45, 0.5)}
+        {beam(-45, spike * 0.45, 0.5)}
+      </span>
+      <span
+        className="absolute inset-0 rounded-full bg-white"
+        style={{
+          boxShadow: `0 0 ${size}px ${size / 3}px #fff, 0 0 ${size * 2}px ${size / 2}px ${hue}`,
+        }}
+      />
+    </span>
   );
 }
