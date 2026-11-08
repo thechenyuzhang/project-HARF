@@ -1,7 +1,7 @@
 // How other participants answered, as broad and rounded counts. Shared by the
 // participant function (which computes it) and the site (which draws it).
 import { AI_TOOLS, AI_USE_FREQUENCIES, FEELINGS, NOTICED_CHANGE } from "./harf";
-import { TONES } from "./tone";
+import { TONES, readTone } from "./tone";
 import { CLOUD_SIZE, storyWords } from "./words";
 
 /** Groups smaller than this are never returned. Counts are rounded to the same step. */
@@ -33,6 +33,7 @@ export type CommunityRecord = Partial<Record<CommunityDimension, string | string
   participantRef?: string | null;
   /** Read only to count words; never returned. */
   originalText?: string | null;
+  submittedAt?: string | null;
   synthetic?: boolean | null;
   editorialStatus?: string | null;
 };
@@ -69,7 +70,7 @@ function summarizeWords(real: CommunityRecord[]): CommunityRow[] {
 }
 
 function summarizePeople(real: CommunityRecord[]): CommunityRow[] {
-  const people = new Set(real.map((r) => r.participantRef!)).size;
+  const people = new Set(real.filter((r) => r.editorialStatus !== "ARCHIVED").map((r) => r.participantRef!)).size;
   return people < MIN_GROUP ? [] : [{ dimension: PEOPLE, label: "participants", count: rounded(people), respondents: rounded(people) }];
 }
 
@@ -92,4 +93,46 @@ function summarizeDimensions(real: CommunityRecord[]): CommunityRow[] {
         : [{ dimension: key, label, count: rounded(size), respondents: rounded(respondents.size) }];
     });
   });
+}
+
+/** One month of the community, for the "over time" view. */
+export type TrendPoint = {
+  /** YYYY-MM */
+  period: string;
+  /** People who wrote that month, rounded to the nearest MIN_GROUP. */
+  people: number;
+  /** Mean tone that month, -1 to 1 in steps of 0.05; each person counts once. */
+  toneScore: number | null;
+};
+
+const step = (n: number) => Math.round(n * 20) / 20;
+
+/**
+ * How the tone of stories moves month by month. A month is shown only when at
+ * least MIN_GROUP people wrote in it. Editor-archived stories are left out.
+ */
+export function summarizeTrend(records: CommunityRecord[]): TrendPoint[] {
+  const months = new Map<string, Map<string, number[]>>();
+  for (const r of records) {
+    if (r.synthetic || !r.participantRef || !r.submittedAt || !r.originalText) continue;
+    if (r.editorialStatus === "WITHDRAWN" || r.editorialStatus === "ARCHIVED") continue;
+    const period = r.submittedAt.slice(0, 7);
+    const people = months.get(period) ?? new Map<string, number[]>();
+    const scores = people.get(r.participantRef) ?? [];
+    const reading = readTone(r.originalText);
+    if (reading) scores.push(reading.score);
+    people.set(r.participantRef, scores);
+    months.set(period, people);
+  }
+  return [...months]
+    .filter(([, people]) => people.size >= MIN_GROUP)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([period, people]) => {
+      const perPerson = [...people.values()].filter((s) => s.length).map((s) => s.reduce((a, b) => a + b, 0) / s.length);
+      return {
+        period,
+        people: rounded(people.size),
+        toneScore: perPerson.length >= MIN_GROUP ? step(perPerson.reduce((a, b) => a + b, 0) / perPerson.length) : null,
+      };
+    });
 }

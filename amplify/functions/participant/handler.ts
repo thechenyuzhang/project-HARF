@@ -8,7 +8,13 @@ import {
   PARTICIPANT_CODE_PATTERN,
   normalizeParticipantCode,
 } from "../../../src/lib/harf";
-import { summarizeCommunity, type CommunityRecord, type CommunityRow } from "../../../src/lib/community";
+import {
+  summarizeCommunity,
+  summarizeTrend,
+  type CommunityRecord,
+  type CommunityRow,
+  type TrendPoint,
+} from "../../../src/lib/community";
 import { readTone } from "../../../src/lib/tone";
 import { EMAIL_PATTERN, participantRefFor } from "../shared/participant-ref";
 
@@ -138,14 +144,15 @@ async function track(args: Record<string, unknown>) {
 }
 
 const STATS_TTL = 5 * 60 * 1000;
-let statsCache: { at: number; rows: CommunityRow[] } | null = null;
+let recordsCache: { at: number; records: CommunityRecord[] } | null = null;
 
 /**
- * Guests can call this, so it reads only the fields it counts and at most once per five minutes.
- * Story text is read to count words and never leaves this function.
+ * Guests can call these, so the table is read for only the fields counted, at
+ * most once per five minutes. Story text is read to count words and tone and
+ * never leaves this function.
  */
-async function communityStats() {
-  if (statsCache && Date.now() - statsCache.at < STATS_TTL) return statsCache.rows;
+async function communityRecords() {
+  if (recordsCache && Date.now() - recordsCache.at < STATS_TTL) return recordsCache.records;
   const records: CommunityRecord[] = [];
   let ExclusiveStartKey: Record<string, unknown> | undefined;
   do {
@@ -153,16 +160,23 @@ async function communityStats() {
       new ScanCommand({
         TableName: TESTIMONY_TABLE,
         ProjectionExpression:
-          "participantRef, synthetic, editorialStatus, tone, feelings, aiUseFrequency, mainAiTool, noticedChange, originalText",
+          "participantRef, synthetic, editorialStatus, tone, feelings, aiUseFrequency, mainAiTool, noticedChange, originalText, submittedAt",
         ExclusiveStartKey,
       }),
     );
     records.push(...((page.Items ?? []) as CommunityRecord[]));
     ExclusiveStartKey = page.LastEvaluatedKey;
   } while (ExclusiveStartKey);
-  const rows = summarizeCommunity(records);
-  statsCache = { at: Date.now(), rows };
-  return rows;
+  recordsCache = { at: Date.now(), records };
+  return records;
+}
+
+async function communityStats(): Promise<CommunityRow[]> {
+  return summarizeCommunity(await communityRecords());
+}
+
+async function communityTrend(): Promise<TrendPoint[]> {
+  return summarizeTrend(await communityRecords());
 }
 
 /** A participant's own entries, oldest first: broad readings only, never the text itself. */
@@ -213,6 +227,7 @@ export const handler = async (event: ResolverEvent) => {
     if (fieldName === "requestWithdrawal") return await requestWithdrawal(event.arguments);
     if (fieldName === "track") return await track(event.arguments);
     if (fieldName === "communityStats") return await communityStats();
+    if (fieldName === "communityTrend") return await communityTrend();
     if (fieldName === "myEntries") return await myEntries(event.arguments);
     throw new Error(`Unsupported operation ${fieldName}`);
   } catch (err) {
