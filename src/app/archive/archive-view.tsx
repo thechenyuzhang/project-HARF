@@ -7,6 +7,7 @@ import { ExcerptCard } from "@/components/excerpt-card";
 import { ThemeIcon } from "@/components/icons";
 import { client, listAll, type Excerpt } from "@/lib/amplify";
 import { THEMES } from "@/lib/harf";
+import { ArchiveCommunity } from "./archive-community";
 
 export function ArchiveView() {
   const params = useSearchParams();
@@ -14,6 +15,7 @@ export function ArchiveView() {
   const theme = params.get("theme");
   const [excerpts, setExcerpts] = useState<Excerpt[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [people, setPeople] = useState(0);
 
   useEffect(() => {
     listAll((nextToken) => client.models.Excerpt.list({ nextToken }))
@@ -36,6 +38,8 @@ export function ArchiveView() {
 
   return (
     <>
+      <ArchiveCommunity onPeople={setPeople} />
+
       <div className="mb-8">
         <ul className="flex flex-wrap gap-2 text-sm">
           <li>
@@ -74,6 +78,13 @@ export function ArchiveView() {
           <p className="font-serif text-2xl">
             {theme ? `No published stories on ${theme} yet.` : "The first stories are being reviewed."}
           </p>
+          {!theme ? (
+            <p className="mx-auto mt-3 max-w-xl text-ink-soft">
+              {people ? `About ${people} people have shared their experience so far. ` : ""}
+              Excerpts appear here once a participant agrees to publication and our editors have reviewed and
+              anonymized them. Nothing is published automatically.
+            </p>
+          ) : null}
           <Link href="/share/" data-track="share_click" data-track-from="archive_empty" className="mt-3 inline-block py-2 text-sm text-accent underline">
             Share yours
           </Link>

@@ -6,6 +6,7 @@ import { track } from "@/lib/analytics";
 import { client, errorMessage } from "@/lib/amplify";
 import { CONSENT_TEXT, CONSENT_VERSION, REFLECTION } from "@/lib/harf";
 import { CircleLink } from "./circle-link";
+import { CommunityInvite } from "./community-invite";
 
 /**
  * Shown after a story or a survey: thanks, one reflection to take away, and an
@@ -39,7 +40,11 @@ export function ContributionThanks({
 
       {children}
 
-      <RevisitInvitation source={source} testimonyId={testimonyId} participantCode={participantCode} />
+      {source === "survey" ? (
+        <CommunityInvite afterSurvey />
+      ) : (
+        <RevisitInvitation source={source} testimonyId={testimonyId} participantCode={participantCode} />
+      )}
 
       <div className="mt-12 flex flex-wrap gap-6 text-sm">
         <CircleLink href="/archive/">Explore the archive</CircleLink>

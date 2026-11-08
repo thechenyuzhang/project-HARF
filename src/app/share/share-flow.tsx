@@ -715,7 +715,12 @@ function Done({ result, text, answers }: { result: Result; text: string; answers
             </button>
           </div>
         </div>
-        <StoryAnalysis text={text} answers={answers} />
+        <StoryAnalysis
+          text={text}
+          answers={answers}
+          participantCode={result.participantCode}
+          entryNumber={result.entryNumber}
+        />
       </ContributionThanks>
     </div>
   );

@@ -67,6 +67,10 @@ backend.editorial.addEnvironment("MEDIA_BUCKET", bucket.bucketName);
 
 const participantFn = backend.participant.resources.lambda;
 tables.Testimony.grantReadData(participantFn);
+// A participant's own entries over time, found by their code.
+participantFn.addToRolePolicy(
+  new PolicyStatement({ actions: ["dynamodb:Query"], resources: [`${tables.Testimony.tableArn}/index/byParticipant`] }),
+);
 tables.Contact.grantWriteData(participantFn);
 tables.WithdrawalRequest.grantWriteData(participantFn);
 tables.AnalyticsEvent.grantWriteData(participantFn);

@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { client } from "@/lib/amplify";
 import { COMMUNITY_DIMENSIONS, MIN_GROUP, type CommunityDimension, type CommunityRow } from "@/lib/community";
 import { readTone, type Tone } from "@/lib/tone";
+import { ParticipantTimeline } from "./participant-timeline";
+import { StoryCloud } from "./story-cloud";
 import { PeopleWaffle, RankedBars, ScaleColumns, ShareDonut, ToneStack, type Share } from "./community-charts";
 
 export type OwnAnswers = {
@@ -22,7 +24,17 @@ const TONE_SENTENCE: Record<Tone, string> = {
 };
 
 /** What the participant sees right after submitting. Everything except the code and thanks is optional extra. */
-export function StoryAnalysis({ text, answers }: { text: string; answers: OwnAnswers }) {
+export function StoryAnalysis({
+  text,
+  answers,
+  participantCode,
+  entryNumber,
+}: {
+  text: string;
+  answers: OwnAnswers;
+  participantCode: string;
+  entryNumber: number;
+}) {
   const reading = useMemo(() => readTone(text), [text]);
   const [rows, setRows] = useState<CommunityRow[] | null>(null);
 
@@ -85,6 +97,10 @@ export function StoryAnalysis({ text, answers }: { text: string; answers: OwnAns
             </>
           )}
         </div>
+
+        <StoryCloud text={text} rows={rows} />
+
+        <ParticipantTimeline participantCode={participantCode} entryNumber={entryNumber} text={text} answers={answers} />
 
         {rows === null ? <p className="text-sm text-muted">Loading what others have shared…</p> : null}
 

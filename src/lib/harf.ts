@@ -150,6 +150,8 @@ export const CONSENT_TEXT = {
     "HARF may contact me about a future interview. My contact details are stored separately from my testimony and never published.",
   revisit:
     "HARF may email me in about six months to invite me to revisit my answers. My email is stored separately from my contribution, never published, and used for nothing else.",
+  community:
+    "HARF may email me occasional community updates and invitations to share my experience. My email is stored separately from any contribution, never published or shared, and I can ask to be removed at any time.",
 } as const;
 
 export const LIMITS = {
@@ -199,6 +201,7 @@ export const ANALYTICS_EVENTS = [
   "survey_start",
   "survey_submit",
   "followup_optin",
+  "community_join",
 ] as const;
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];
 
