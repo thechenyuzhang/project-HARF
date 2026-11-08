@@ -149,7 +149,9 @@ const WEB: [Theme, Theme][] = [
 ];
 
 const TRANSITION_START = Date.UTC(2022, 10, 30); // ChatGPT's public release
-const SKY_SPEED = 240; // timelapse: one real second = four minutes of sky
+const SKY_SPEED = 240;
+const OMEGA = 0.03; // sky rotation, radians per second: a slow drift
+const MAX_TRAIL = 0.5; // longest star trail, in radians // timelapse: one real second = four minutes of sky
 
 // Scroll choreography, as fractions of the pinned section.
 const FOCUS_START = 0.44;
@@ -237,6 +239,7 @@ export function UniverseSky() {
     window.addEventListener("resize", resize);
 
     let angle = 0;
+    let exposure = 0; // trail length in radians, builds up after load
     let last = performance.now();
     let skyTime = Date.now();
     let lastShown = -1;
@@ -276,85 +279,99 @@ export function UniverseSky() {
         });
       }
 
-      // Fast timelapse at the top, settling to a still sky as you scroll in.
+      // Slow timelapse at the top, settling to a still sky as you scroll in.
       const speed = reduced ? 0 : 1 - ramp(0.1, 0.34, prog);
-      const prev = angle;
-      angle += 0.11 * speed * dt;
+      angle += OMEGA * speed * dt;
+      exposure = Math.min(MAX_TRAIL, exposure + OMEGA * speed * dt);
       skyTime += dt * 1000 * (1 + (SKY_SPEED - 1) * speed);
       if (skyClockRef.current) {
         skyClockRef.current.textContent = new Date(skyTime).toLocaleTimeString(
           [],
-          {
-            hour: "2-digit",
-            minute: "2-digit",
-          },
+          { hour: "2-digit", minute: "2-digit" },
         );
       }
 
-      // Fade the previous frame: long exposure when fast, crisp points when still.
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.fillStyle = `rgba(0,0,0,${reduced ? 1 : 0.02 + 0.4 * (1 - speed)})`;
-      ctx.fillRect(0, 0, w, h);
-      ctx.globalCompositeOperation = "source-over";
+      // Redraw from scratch every frame, so nothing ghosts on the canvas.
+      ctx.clearRect(0, 0, w, h);
 
-      const moving = speed > 0.02;
+      // Trails are arcs that grow as the exposure builds, brighter at the head.
+      const trail = exposure * speed;
+      const moving = trail > 0.004;
+      const pieces = [
+        [0, 0.4, 0.12],
+        [0.4, 0.75, 0.35],
+        [0.75, 1, 0.85],
+      ] as const;
       for (let b = 0; b < BUCKETS.length; b++) {
-        const twinkle = moving
-          ? 0.85
-          : 0.55 + 0.45 * Math.sin(t / 700 + b * 1.7);
-        ctx.globalAlpha = twinkle;
         ctx.strokeStyle = BUCKETS[b];
         ctx.fillStyle = BUCKETS[b];
+        if (moving) {
+          ctx.lineWidth = 1.2;
+          for (const [from, to, alpha] of pieces) {
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            for (const s of stars) {
+              if (s.b !== b) continue;
+              const r = s.r * maxR;
+              const head = s.a + angle;
+              const a0 = head - trail * (1 - from);
+              const a1 = head - trail * (1 - to);
+              ctx.moveTo(px + Math.cos(a0) * r, py + Math.sin(a0) * r);
+              ctx.arc(px, py, r, a0, a1);
+            }
+            ctx.stroke();
+          }
+        }
+        // The star itself: a point that twinkles once the sky is still.
+        ctx.globalAlpha = moving
+          ? 0.9
+          : 0.55 + 0.45 * Math.sin(t / 700 + b * 1.7);
         ctx.beginPath();
         for (const s of stars) {
           if (s.b !== b) continue;
           const r = s.r * maxR;
-          if (moving) {
-            ctx.moveTo(
-              px + Math.cos(s.a + prev) * r,
-              py + Math.sin(s.a + prev) * r,
-            );
-            ctx.lineTo(
-              px + Math.cos(s.a + angle) * r,
-              py + Math.sin(s.a + angle) * r,
-            );
-          } else {
-            const x = px + Math.cos(s.a + angle) * r;
-            const y = py + Math.sin(s.a + angle) * r;
-            ctx.rect(x, y, s.size, s.size);
-          }
+          ctx.rect(
+            px + Math.cos(s.a + angle) * r - s.size / 2,
+            py + Math.sin(s.a + angle) * r - s.size / 2,
+            s.size,
+            s.size,
+          );
         }
-        if (moving) {
-          ctx.lineWidth = 1.3;
-          ctx.stroke();
-        } else {
-          ctx.fill();
-        }
+        ctx.fill();
       }
 
-      // The odd satellite streaking across, like in a real timelapse.
+      // A rare satellite gliding across, with a short fading tail.
       if (!reduced) {
-        if (!satellite && Math.random() < dt * 0.25) {
+        if (!satellite && speed > 0.5 && Math.random() < dt * 0.04) {
           const fromLeft = Math.random() < 0.5;
           satellite = {
             x: fromLeft ? -10 : w + 10,
-            y: Math.random() * h * 0.6,
-            vx: (fromLeft ? 1 : -1) * (180 + Math.random() * 160),
-            vy: 40 + Math.random() * 60,
+            y: Math.random() * h * 0.5,
+            vx: (fromLeft ? 1 : -1) * (40 + Math.random() * 30),
+            vy: 8 + Math.random() * 12,
           };
         }
         if (satellite) {
           const s = satellite;
-          ctx.globalAlpha = 0.9;
-          ctx.strokeStyle = "#ffffff";
-          ctx.lineWidth = 1.2;
-          ctx.beginPath();
-          ctx.moveTo(s.x, s.y);
           s.x += s.vx * dt;
           s.y += s.vy * dt;
+          const len = 50 / Math.hypot(s.vx, s.vy);
+          const tail = ctx.createLinearGradient(
+            s.x - s.vx * len,
+            s.y - s.vy * len,
+            s.x,
+            s.y,
+          );
+          tail.addColorStop(0, "rgba(255,255,255,0)");
+          tail.addColorStop(1, "rgba(255,255,255,0.7)");
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = tail;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(s.x - s.vx * len, s.y - s.vy * len);
           ctx.lineTo(s.x, s.y);
           ctx.stroke();
-          if (s.x < -20 || s.x > w + 20 || s.y > h) satellite = null;
+          if (s.x < -60 || s.x > w + 60 || s.y > h) satellite = null;
         }
       }
       ctx.globalAlpha = 1;
