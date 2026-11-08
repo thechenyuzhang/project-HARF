@@ -59,7 +59,7 @@ export function StoryCloud({ text, rows }: { text: string; rows: CommunityRow[] 
                 ? "The words people have used so far…"
                 : "Adding your words…"
               : [
-                  "Your words are in red.",
+                  "Your words glow in the bulb.",
                   grew ? `${grew} matched words others had used, and grew.` : "",
                   joined ? `${joined} new ${joined === 1 ? "word" : "words"} joined the cloud.` : "",
                 ]
@@ -80,10 +80,10 @@ export function StoryCloud({ text, rows }: { text: string; rows: CommunityRow[] 
           Replay
         </button>
       </figcaption>
-      <WordCloud words={phase === "before" ? before : after} label="Word cloud of stories shared so far" />
+      <WordCloud words={phase === "before" ? before : after} label="Word cloud of stories shared so far, in the shape of a light bulb" />
       <p className="mt-2 text-xs leading-relaxed text-muted">
-        Larger words were used by more people. Others&apos; words appear only once at least {MIN_GROUP} people have used
-        them. Your own words are shown only to you, here.
+        Larger words were used by more people. Your own words glow, and smaller repeats fill out the shape. Others&apos; words appear only once at least {MIN_GROUP} people have used
+        them. Only you can see your words here.
       </p>
     </figure>
   );
