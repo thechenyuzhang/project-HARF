@@ -3,9 +3,8 @@
 import { MessageCircleQuestionMark } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { client, fetchCurrentWeeklyQuestion, listAll, type Excerpt, type WeeklyQuestion } from "@/lib/amplify";
+import { fetchCurrentWeeklyQuestion, type WeeklyQuestion } from "@/lib/amplify";
 import { CircleLink } from "./circle-link";
-import { ExcerptCard } from "./excerpt-card";
 
 export function WeeklyQuestionCard() {
   const [question, setQuestion] = useState<WeeklyQuestion | null | undefined>(undefined);
@@ -47,33 +46,6 @@ export function WeeklyQuestionCard() {
             </CircleLink>
           </span>
         ) : null}
-      </div>
-    </section>
-  );
-}
-
-/** Excerpts an editor has chosen to feature. Renders nothing until there are any. */
-export function ArchivePreview() {
-  const [excerpts, setExcerpts] = useState<Excerpt[]>([]);
-
-  useEffect(() => {
-    listAll((nextToken) => client.models.Excerpt.list({ filter: { featured: { eq: true } }, nextToken }))
-      .then((items) => setExcerpts(items.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).slice(0, 3)))
-      .catch(() => setExcerpts([]));
-  }, []);
-
-  if (!excerpts.length) return null;
-
-  return (
-    <section className="mx-auto max-w-6xl px-5 pt-24">
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <h2 className="font-serif text-3xl sm:text-4xl">From the archive</h2>
-        <CircleLink href="/archive/">See all stories</CircleLink>
-      </div>
-      <div className="grid gap-6 md:grid-cols-3">
-        {excerpts.map((e) => (
-          <ExcerptCard key={e.id} excerpt={e} />
-        ))}
       </div>
     </section>
   );

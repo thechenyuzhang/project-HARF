@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Look, LookId } from "./variants";
+import type { Look, LookId } from "./looks";
 
 // The fixed backdrop for the landing concepts. One canvas, four looks: the sky
 // never scrolls; the page's title and sections travel over it. Each word is a
@@ -412,7 +412,22 @@ function paintStatic(
   }
 }
 
-export function SkyCanvas({ look, fonts }: { look: Look; fonts: Fonts }) {
+/**
+ * `coverSelector` names the opaque part of the page that eventually scrolls
+ * over the sky; once it fills the screen the sky stops drawing.
+ */
+export function SkyCanvas({
+  look,
+  fonts,
+  coverSelector,
+  veilMax = 0.62,
+}: {
+  look: Look;
+  fonts: Fonts;
+  coverSelector?: string;
+  /** How far the sky dims once the title has scrolled away (0–1). */
+  veilMax?: number;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const veilRef = useRef<HTMLDivElement>(null);
 
@@ -445,7 +460,7 @@ export function SkyCanvas({ look, fonts }: { look: Look; fonts: Fonts }) {
     let live: Live[] = [];
 
     const build = () => {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       w = canvas.clientWidth;
       h = canvas.clientHeight;
       u = clamp(Math.min(w, h) / 760, 0.72, 1.15);
@@ -496,6 +511,8 @@ export function SkyCanvas({ look, fonts }: { look: Look; fonts: Fonts }) {
 
     const STEP = 0.09; // seconds between one letter igniting and the next
     let start = 0; // set on the first frame that has a sky to draw
+    let lastDrawn = 0;
+    const cover = coverSelector ? document.querySelector<HTMLElement>(coverSelector) : null;
     let nextPulse = 5;
     let raf = 0;
 
@@ -549,6 +566,11 @@ export function SkyCanvas({ look, fonts }: { look: Look; fonts: Fonts }) {
         return;
       }
       start ||= now;
+      // About 30 frames a second is plenty for twinkling, and halves the work.
+      if (now - lastDrawn < 30) return;
+      // Nothing to draw while the page's opaque sections cover the sky.
+      if (cover && cover.getBoundingClientRect().top <= 0) return;
+      lastDrawn = now;
       const t = reduced ? 60 : (now - start) / 1000;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
@@ -652,7 +674,7 @@ export function SkyCanvas({ look, fonts }: { look: Look; fonts: Fonts }) {
 
       // The sky stays where it is; it only dims as the next section arrives over it.
       if (veilRef.current) {
-        veilRef.current.style.opacity = String(0.62 * ease(clamp(window.scrollY / (window.innerHeight * 0.85))));
+        veilRef.current.style.opacity = String(veilMax * ease(clamp(window.scrollY / (window.innerHeight * 0.85))));
       }
     };
     raf = requestAnimationFrame(frame);
@@ -664,7 +686,7 @@ export function SkyCanvas({ look, fonts }: { look: Look; fonts: Fonts }) {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("pointermove", onMove);
     };
-  }, [look, fonts]);
+  }, [look, fonts, coverSelector, veilMax]);
 
   return (
     <div aria-hidden className="fixed inset-x-0 top-0 -z-10 h-lvh" style={{ background: look.backdrop }}>

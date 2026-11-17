@@ -21,7 +21,15 @@ type PublishArgs = {
   text: string;
   themes?: (string | null)[] | null;
   participantCategory?: string | null;
+  title?: string | null;
+  body?: string | null;
+  showCountry?: boolean | null;
+  showAge?: boolean | null;
+  credit?: boolean | null;
+  featured?: boolean | null;
 };
+
+const clean = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
 
 async function loadTestimony(id: string) {
   const res = await db.send(new GetCommand({ TableName: TESTIMONY_TABLE, Key: { id } }));
@@ -44,6 +52,13 @@ async function publish(args: PublishArgs) {
   const text = args.text.trim();
   if (!text) throw new Error("The excerpt is empty.");
   if (text.length > LIMITS.excerptMax) throw new Error(`Excerpts are limited to ${LIMITS.excerptMax} characters.`);
+  const body = clean(args.body);
+  if (body && body.length > LIMITS.bodyMax) throw new Error(`Full testimonies are limited to ${LIMITS.bodyMax} characters.`);
+  // A name is published only with the contributor's written agreement, recorded privately.
+  const credited = args.credit === true;
+  if (credited && (testimony.consentNamedCredit !== true || !clean(testimony.creditName))) {
+    throw new Error("This contributor has not agreed to be named, so the piece can't be credited.");
+  }
 
   const themes = (args.themes ?? []).filter((t): t is string => !!t && (THEMES as readonly string[]).includes(t));
   const now = new Date().toISOString();
@@ -59,13 +74,23 @@ async function publish(args: PublishArgs) {
     updatedAt: now,
     text,
     themes,
+    title: clean(args.title),
+    body,
     participantCategory: args.participantCategory?.trim() || testimony.relationship || "Participant",
+    // Editors can leave these off when they would make someone recognisable.
+    country: args.showCountry === false ? undefined : clean(testimony.countryOfBirth) ?? clean(testimony.country),
+    ageRange: args.showAge === false ? undefined : clean(testimony.ageRange),
+    creditName: credited ? clean(testimony.creditName) : undefined,
+    creditLine: credited ? clean(testimony.creditLine) : undefined,
     language: testimony.language,
-    // Only the month is shown publicly; the exact timestamp stays private.
-    contributedOn: `${(testimony.submittedAt as string).slice(0, 7)}-01`,
+    // Only the month is shown for anonymous pieces; credited ones keep their day.
+    contributedOn: credited
+      ? (testimony.submittedAt as string).slice(0, 10)
+      : `${(testimony.submittedAt as string).slice(0, 7)}-01`,
+    exactDate: credited,
     publishedAt: now,
     synthetic: testimony.synthetic === true,
-    featured: existing?.featured === true,
+    featured: typeof args.featured === "boolean" ? args.featured : existing?.featured === true,
   };
 
   await db.send(

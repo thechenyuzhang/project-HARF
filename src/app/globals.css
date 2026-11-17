@@ -158,27 +158,27 @@ body:has(.universe-page) > footer {
   animation: universe-born 0.9s ease-out;
 }
 
-/* /concepts: landing-page directions under review. The sky is a fixed layer
+/* Night-sky pages (home, /concepts): the sky is a fixed layer
    behind the whole page, so the root carries the dark colour and the body
    lets it through. */
-html:has(.concepts-page) {
+html:has(.sky-page) {
   background: #03050d;
 }
-body:has(.concepts-page) {
+body:has(.sky-page) {
   background: transparent;
 }
-body:has(.concepts-page) > header {
+body:has(.sky-page) > header {
   background: rgb(3 5 13 / 0.55);
   border-color: rgb(255 255 255 / 0.08);
   color: #fff;
 }
-body:has(.concepts-page) > header nav a:not(.bg-accent) {
+body:has(.sky-page) > header nav a:not(.bg-accent) {
   color: rgb(255 255 255 / 0.75);
 }
-body:has(.concepts-page) > header nav a:not(.bg-accent):hover {
+body:has(.sky-page) > header nav a:not(.bg-accent):hover {
   color: #fff;
 }
-body:has(.concepts-page) > footer {
+body:has(.sky-page) > footer {
   margin-top: 0;
 }
 .concept-scroll {
@@ -268,6 +268,53 @@ body:has(.concepts-page) > footer {
     animation: none;
   }
   .concept-glint {
+    animation: none;
+  }
+}
+
+/* The Observatory (home page constellations). Hover and focus are pure CSS so
+   pointing at stars costs nothing. */
+.obs-halo {
+  opacity: 0.55;
+  transition: opacity 0.25s;
+}
+.obs-star:hover .obs-halo,
+.obs-star:focus-visible .obs-halo {
+  opacity: 1;
+}
+.obs-star:focus-visible,
+.obs-label:focus-visible {
+  outline: none;
+}
+.obs-label:hover text:first-child,
+.obs-label:focus-visible text:first-child {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+@keyframes obs-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+.obs-twinkle {
+  animation: obs-twinkle 2.6s ease-in-out infinite;
+}
+@keyframes observatory-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+.observatory-rise {
+  animation: observatory-rise 0.35s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .obs-twinkle,
+  .observatory-rise {
     animation: none;
   }
 }

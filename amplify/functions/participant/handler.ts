@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { AppSyncResolverEvent } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
@@ -15,6 +15,7 @@ import {
   type CommunityRow,
   type TrendPoint,
 } from "../../../src/lib/community";
+import { matchThemes } from "../../../src/lib/constellation";
 import { readTone } from "../../../src/lib/tone";
 import { EMAIL_PATTERN, participantRefFor } from "../shared/participant-ref";
 
@@ -179,6 +180,44 @@ async function communityTrend(): Promise<TrendPoint[]> {
   return summarizeTrend(await communityRecords());
 }
 
+type SkyStar = { key: string; themes: string[]; verified: boolean; month: string; excerptId: string | null };
+let starsCache: { at: number; stars: SkyStar[] } | null = null;
+
+/**
+ * One anonymous star per testimony for the landing page's constellations: its
+ * themes and month, never its text or id. Editors' themes win; until an editor
+ * has reviewed a testimony, the matcher in src/lib/constellation.ts places it.
+ */
+async function skyStars(): Promise<SkyStar[]> {
+  if (starsCache && Date.now() - starsCache.at < STATS_TTL) return starsCache.stars;
+  const stars: SkyStar[] = [];
+  let ExclusiveStartKey: Record<string, unknown> | undefined;
+  do {
+    const page = await db.send(
+      new ScanCommand({
+        TableName: TESTIMONY_TABLE,
+        ProjectionExpression: "id, synthetic, editorialStatus, themes, reviewedAt, originalText, submittedAt, excerptId",
+        ExclusiveStartKey,
+      }),
+    );
+    for (const t of page.Items ?? []) {
+      if (t.synthetic === true || t.editorialStatus === "ARCHIVED" || t.editorialStatus === "WITHDRAWN") continue;
+      const confirmed = Array.isArray(t.themes) && t.themes.length > 0 && !!t.reviewedAt;
+      const themes: string[] = confirmed ? t.themes : matchThemes(String(t.originalText ?? ""));
+      stars.push({
+        key: createHash("sha256").update(`star:${t.id}`).digest("hex").slice(0, 12),
+        themes,
+        verified: confirmed,
+        month: String(t.submittedAt ?? "").slice(0, 7),
+        excerptId: typeof t.excerptId === "string" ? t.excerptId : null,
+      });
+    }
+    ExclusiveStartKey = page.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  starsCache = { at: Date.now(), stars };
+  return stars;
+}
+
 /** A participant's own entries, oldest first: broad readings only, never the text itself. */
 async function myEntries(args: Record<string, unknown>) {
   const ref = participantRef(args.participantCode);
@@ -229,6 +268,7 @@ export const handler = async (event: ResolverEvent) => {
     if (fieldName === "communityStats") return await communityStats();
     if (fieldName === "communityTrend") return await communityTrend();
     if (fieldName === "myEntries") return await myEntries(event.arguments);
+    if (fieldName === "skyStars") return await skyStars();
     throw new Error(`Unsupported operation ${fieldName}`);
   } catch (err) {
     if (err instanceof ValidationError) throw new Error(err.message);

@@ -1,10 +1,17 @@
-import { ArrowRight, ClipboardList, Clock, Library, PenLine, type LucideIcon } from "lucide-react";
+import { ArrowRight, ChevronDown, ClipboardList, Clock, Library, PenLine, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { HERO_PHOTO_CREDIT, HeroPhoto } from "@/components/hero-photo";
-import { ArchivePreview, WeeklyQuestionCard } from "@/components/home-islands";
-import { ThemeIcon } from "@/components/icons";
+import type { CSSProperties } from "react";
+import { WeeklyQuestionCard } from "@/components/home-islands";
+import { Observatory } from "@/components/observatory/observatory";
+import { LOOKS, TITLES } from "@/components/sky/looks";
+import { SkyCanvas } from "@/components/sky/sky-canvas";
+import { SKY_FONTS, SkyTitle, TITLE_TYPE } from "@/components/sky/sky-title";
 import { TeamSection } from "@/components/team-section";
-import { THEMES } from "@/lib/harf";
+
+// The home page: Letter Sky, the look chosen on /concepts/. The sky stays put
+// while the title, the constellations and then the paper sections travel up over it.
+const LOOK = LOOKS.find((l) => l.id === "letters")!;
+const TITLE = TITLES.find((t) => t.id === "observatory")!;
 
 const ACTIONS: { href: string; icon: LucideIcon; title: string; text: string; time: string; track: string }[] = [
   {
@@ -35,31 +42,32 @@ const ACTIONS: { href: string; icon: LucideIcon; title: string; text: string; ti
 
 export default function Home() {
   return (
-    <>
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-navy text-card">
-        <HeroPhoto />
-        <div className="relative mx-auto max-w-6xl px-5 pb-20 pt-16 sm:pb-28 sm:pt-28">
-          <h1 className="max-w-4xl font-serif text-5xl leading-[1.02] sm:text-7xl md:text-8xl">
-            A Living Memory of the AI Transition
-          </h1>
-          <p className="mt-8 max-w-2xl font-serif text-2xl leading-snug text-card/90 sm:text-3xl">
-            We are experiencing a transformation we do not yet fully understand.
-          </p>
-          <p className="mt-5 max-w-xl text-lg text-card/75">How is AI changing the way you think, learn, work, and feel?</p>
-        </div>
+    <div className="sky-page relative text-white" style={{ "--concept-accent": LOOK.accent } as CSSProperties}>
+      <SkyCanvas look={LOOK} fonts={SKY_FONTS} coverSelector="#home-paper" veilMax={0.86} />
+
+      {/* First page: the title, alone with the sky. */}
+      <section
+        aria-label="On AI and Us: The Observatory"
+        className={`relative mx-auto flex h-[calc(100svh-5.5rem)] min-h-[30rem] max-w-7xl px-6 sm:px-10 ${TITLE_TYPE.letters.hero}`}
+      >
+        <SkyTitle look={LOOK} title={TITLE} />
         <a
-          href={HERO_PHOTO_CREDIT.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="absolute bottom-4 right-5 hidden text-[0.65rem] text-card/50 hover:text-card sm:block"
+          href="#constellations"
+          className="concept-fade absolute inset-x-0 bottom-6 mx-auto flex w-fit animate-bounce text-white/55 hover:text-white"
+          style={{ "--d": "3.5s" } as CSSProperties}
         >
-          Photo: {HERO_PHOTO_CREDIT.name} / Unsplash
+          <span className="sr-only">Explore the constellations</span>
+          <ChevronDown aria-hidden className="size-5" />
         </a>
       </section>
 
+      {/* Second page: the constellations, travelling up over the still sky. */}
+      <Observatory />
+
+      {/* The rest of the page is paper, sliding over the sky. */}
+      <div id="home-paper" className="relative bg-paper pb-4 text-ink">
       {/* Invitation to participate */}
-      <section className="mx-auto max-w-6xl px-5 pt-16 sm:pt-20">
+      <section className="mx-auto max-w-6xl px-5 pt-20 sm:pt-24">
         <h2 className="font-serif text-3xl leading-tight sm:text-4xl">Tell us what AI is changing in your life.</h2>
         <p className="mt-3 max-w-2xl text-lg text-ink-soft">
           Your experience today could help us understand what changed tomorrow.
@@ -105,28 +113,8 @@ export default function Home() {
         </blockquote>
       </section>
 
-      {/* Themes */}
-      <section className="mx-auto max-w-6xl px-5">
-        <h2 className="font-serif text-3xl sm:text-4xl">Explore by theme</h2>
-        <ul className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {THEMES.map((t) => (
-            <li key={t}>
-              <Link
-                href={`/archive/?theme=${encodeURIComponent(t)}`}
-                className="group flex items-center gap-3 rounded-lg bg-card px-4 py-4 ring-1 ring-rule transition-colors hover:bg-navy hover:text-card hover:ring-navy"
-              >
-                <ThemeIcon theme={t} className="size-5 shrink-0 text-accent group-hover:text-card" />
-                <span className="text-sm font-medium sm:text-base">{t}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* Hand-picked excerpts; the section hides itself until there are some. */}
-      <ArchivePreview />
-
       <TeamSection />
-    </>
+      </div>
+    </div>
   );
 }

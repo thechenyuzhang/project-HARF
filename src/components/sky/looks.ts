@@ -1,5 +1,5 @@
-// Landing-page concepts for review: four constellation looks and a set of
-// title wordings, mixed and matched on /concepts/. Nothing here is live copy.
+// The constellation looks and title wordings. The home page uses Letter Sky with
+// "On AI and Us: The Observatory"; /concepts/ keeps every combination for review.
 
 export type LookId = "letters" | "chart" | "field" | "atlas";
 

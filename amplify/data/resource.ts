@@ -19,9 +19,14 @@ import { participant } from "../functions/participant/resource";
  *
  * Deletion goes through the removeTestimony function so a testimony never
  * leaves an orphaned contact record or public excerpt behind.
- * Excerpt        public. An edited, anonymized excerpt. Created only by the
+ * Excerpt        public. An edited, anonymized excerpt (optionally with the
+ *                full edited testimony as `body`). Created only by the
  *                editorial function after it checks publication consent, and
- *                carries no reference back to the private testimony.
+ *                carries no reference back to the private testimony. Country
+ *                and age range appear only if the editor leaves them on; a
+ *                name appears only for contributors who agreed in writing.
+ * skyStars       public, anonymous. One star per testimony in the landing
+ *                page's constellations: its themes and month, no text.
  * WeeklyQuestion public. The Question of the Week, managed by editors.
  *
  * Attached media live in S3 (see storage/resource.ts); a testimony stores
@@ -86,6 +91,11 @@ const schema = a.schema({
       media: a.ref("MediaItem").array().authorization(editorsReadOnly),
       synthetic: a.boolean().authorization(editorsReadOnly),
       tone: a.string().authorization(editorsReadOnly), // broad word-list label from src/lib/tone.ts, for community counts
+      // Testimonies gathered outside the website (interviews, essays): see scripts/import-testimonies.ts.
+      title: a.string().authorization(editorsReadOnly),
+      consentNamedCredit: a.boolean().authorization(editorsReadOnly), // agreed in writing to be published under their name
+      creditName: a.string().authorization(editorsReadOnly),
+      creditLine: a.string().authorization(editorsReadOnly),
       // Editorial layer. Kept apart from the original text.
       editorialStatus: a.ref("EditorialStatus").required(),
       themes: a.string().array(),
@@ -118,10 +128,17 @@ const schema = a.schema({
   Excerpt: a
     .model({
       text: a.string().required(),
+      title: a.string(),
+      body: a.string(), // the full edited testimony, when an editor publishes it whole
       themes: a.string().array(),
       participantCategory: a.string(),
+      country: a.string(),
+      ageRange: a.string(),
+      creditName: a.string(), // only with the contributor's written agreement
+      creditLine: a.string(),
       language: a.string(),
-      contributedOn: a.date(),
+      contributedOn: a.date(), // first of the month, or the exact day for credited pieces
+      exactDate: a.boolean(),
       publishedAt: a.datetime().required(),
       synthetic: a.boolean(),
       featured: a.boolean(), // hand-picked by an editor for the homepage
@@ -183,6 +200,14 @@ const schema = a.schema({
     noticedChange: a.string(),
   }),
 
+  SkyStar: a.customType({
+    key: a.string().required(), // opaque, not the testimony id
+    themes: a.string().array(),
+    verified: a.boolean().required(), // themes confirmed by an editor, not just matched
+    month: a.string().required(),
+    excerptId: a.id(),
+  }),
+
   CommunityTrendPoint: a.customType({
     period: a.string().required(),
     people: a.integer().required(),
@@ -202,6 +227,13 @@ const schema = a.schema({
     .query()
     .arguments({ participantCode: a.string().required() })
     .returns(a.ref("ParticipantEntry").array())
+    .authorization((allow) => [allow.guest(), allow.authenticated()])
+    .handler(a.handler.function(participant)),
+
+  // The landing page's constellations: one anonymous star per testimony.
+  skyStars: a
+    .query()
+    .returns(a.ref("SkyStar").array())
     .authorization((allow) => [allow.guest(), allow.authenticated()])
     .handler(a.handler.function(participant)),
 
@@ -259,6 +291,12 @@ const schema = a.schema({
       text: a.string().required(),
       themes: a.string().array(),
       participantCategory: a.string(),
+      title: a.string(),
+      body: a.string(),
+      showCountry: a.boolean(),
+      showAge: a.boolean(),
+      credit: a.boolean(), // name the contributor; refused without consentNamedCredit
+      featured: a.boolean(),
     })
     .returns(a.ref("Excerpt"))
     .authorization((allow) => [allow.group("ADMINS")])
