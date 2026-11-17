@@ -47,3 +47,6 @@ amplifyconfiguration*
 
 # local tooling
 .claude/
+
+# Interview and essay texts awaiting import (private: never commit)
+/private/
