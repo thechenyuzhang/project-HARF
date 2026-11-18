@@ -43,6 +43,12 @@ export const SAMPLE_STORIES: Story[] = [
       creditName: "Sample Contributor",
       creditLine: "Researcher · Sample University",
       featured: true,
+      reflections: [
+        S("s15r", "2026-11-12", ["Identity"], "Researcher", "South Africa", "35–44", "Two months on, I use it less for writing and more for arguing with my own drafts.", {
+          exactDate: true,
+          creditName: "Sample Contributor",
+        }),
+      ],
       body:
         "This is a fictional sample of a full, credited testimony, shown so editors can review the reader.\n\nA testimony can run to many paragraphs, with the occasional pull quote.\n\n> “Our individual limitations and mistakes can contribute to something collectively useful.”\n\nShort lines without a full stop become headings\n\nAnd the reader keeps going until the end of the piece.",
     },

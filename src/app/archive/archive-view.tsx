@@ -23,16 +23,25 @@ export function ArchiveView() {
       .catch(() => setFailed(true));
   }, []);
 
-  const visible = useMemo(
-    () => (excerpts ?? []).filter((e) => !theme || e.themes?.includes(theme)),
-    [excerpts, theme],
-  );
+  // Reflections sit beneath the story they return to; featured stories come first.
+  const { stories, reflections } = useMemo(() => {
+    const all = excerpts ?? [];
+    const stories = all.filter((e) => !e.parentId);
+    const reflections = new Map<string, Excerpt[]>();
+    for (const e of all) if (e.parentId) reflections.set(e.parentId, [...(reflections.get(e.parentId) ?? []), e]);
+    for (const list of reflections.values()) list.sort((a, b) => (a.contributedOn ?? "").localeCompare(b.contributedOn ?? ""));
+    return { stories, reflections };
+  }, [excerpts]);
+
+  const visible = useMemo(() => stories.filter((e) => !theme || e.themes?.includes(theme)), [stories, theme]);
+  const featured = visible.filter((e) => e.featured);
+  const rest = visible.filter((e) => !e.featured);
 
   const counts = useMemo(() => {
     const c = new Map<string, number>();
-    for (const e of excerpts ?? []) for (const t of e.themes ?? []) if (t) c.set(t, (c.get(t) ?? 0) + 1);
+    for (const e of stories) for (const t of e.themes ?? []) if (t) c.set(t, (c.get(t) ?? 0) + 1);
     return c;
-  }, [excerpts]);
+  }, [stories]);
 
   const select = (t: string | null) => router.replace(t ? `/archive/?theme=${encodeURIComponent(t)}` : "/archive/", { scroll: false });
 
@@ -68,11 +77,33 @@ export function ArchiveView() {
           ))}
         </div>
       ) : visible.length ? (
-        <div className="grid gap-6 md:grid-cols-2">
-          {visible.map((e, i) => (
-            <ExcerptCard key={e.id} excerpt={e} size={i === 0 && !theme ? "lg" : "md"} />
-          ))}
-        </div>
+        <>
+          {featured.length ? (
+            <section className="mb-14">
+              <p className="eyebrow mb-5">Featured</p>
+              <div className="grid gap-6 md:grid-cols-2">
+                {featured.map((e) => (
+                  <ExcerptCard key={e.id} excerpt={e} reflections={reflections.get(e.id)} size="lg" />
+                ))}
+              </div>
+            </section>
+          ) : null}
+          {rest.length ? (
+            <section>
+              {featured.length ? <p className="eyebrow mb-5">All stories</p> : null}
+              <div className="grid gap-6 md:grid-cols-2">
+                {rest.map((e, i) => (
+                  <ExcerptCard
+                    key={e.id}
+                    excerpt={e}
+                    reflections={reflections.get(e.id)}
+                    size={i === 0 && !theme && !featured.length ? "lg" : "md"}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </>
       ) : (
         <div className="rounded-lg bg-card p-10 text-center ring-1 ring-rule">
           <p className="font-serif text-2xl">

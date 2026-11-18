@@ -19,7 +19,7 @@ import {
   layout,
   starMatches,
   storyMatches,
-  toStory,
+  storiesFrom,
   type Filters,
   type SkyStarData,
   type Star,
@@ -36,7 +36,7 @@ async function load(): Promise<Loaded> {
     listAll((nextToken) => client.models.Excerpt.list({ nextToken })),
     client.queries.skyStars(),
   ]);
-  const stories = excerpts.status === "fulfilled" ? excerpts.value.map(toStory) : [];
+  const stories = excerpts.status === "fulfilled" ? storiesFrom(excerpts.value) : [];
   const skyStars =
     sky.status === "fulfilled" ? ((sky.value.data ?? []).filter(Boolean) as SkyStarData[]) : [];
   return { stars: buildStars(skyStars, stories), stories, sample: false };

@@ -196,12 +196,13 @@ async function skyStars(): Promise<SkyStar[]> {
     const page = await db.send(
       new ScanCommand({
         TableName: TESTIMONY_TABLE,
-        ProjectionExpression: "id, synthetic, editorialStatus, themes, reviewedAt, originalText, submittedAt, excerptId",
+        ProjectionExpression: "id, synthetic, editorialStatus, themes, reviewedAt, originalText, submittedAt, excerptId, followUpOf",
         ExclusiveStartKey,
       }),
     );
     for (const t of page.Items ?? []) {
-      if (t.synthetic === true || t.editorialStatus === "ARCHIVED" || t.editorialStatus === "WITHDRAWN") continue;
+      // One star per story: a later reflection belongs to its original's star.
+      if (t.synthetic === true || t.followUpOf || ["ARCHIVED", "REJECTED", "WITHDRAWN"].includes(t.editorialStatus)) continue;
       const confirmed = Array.isArray(t.themes) && t.themes.length > 0 && !!t.reviewedAt;
       const themes: string[] = confirmed ? t.themes : matchThemes(String(t.originalText ?? ""));
       stars.push({

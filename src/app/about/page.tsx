@@ -49,6 +49,15 @@ export default function AboutPage() {
         </IconCard>
       </section>
 
+      <section className="mx-auto max-w-6xl px-5 pt-14">
+        <p className="max-w-3xl font-serif text-2xl leading-snug">
+          Anyone can contribute to HARF. Stories are published after basic moderation, with each author&apos;s voice
+          preserved. Selected contributions may receive additional editorial attention with the author&apos;s approval.
+          Participants can return to their stories over time, adding new reflections without erasing what they
+          originally shared.
+        </p>
+      </section>
+
       <section className="mx-auto max-w-6xl px-5 pt-24">
         <p className="eyebrow">A researcher in 2035 might ask</p>
         <ul className="mt-6 divide-y divide-rule border-y border-rule">
