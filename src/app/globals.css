@@ -17,6 +17,11 @@
   --navy-soft: #2a3150;
   --ok: #2f5d3a;
   --gold: #8f733a;
+  /* The night sky on the home page: the same blue as --navy, deepened, and
+     one pale star colour. Crimson stays the only colour for actions. */
+  --night: #0b0e19;
+  --night-deep: #03050d;
+  --starlight: #cfd8ff;
 }
 
 @theme inline {
@@ -33,6 +38,9 @@
   --color-navy: var(--navy);
   --color-navy-soft: var(--navy-soft);
   --color-gold: var(--gold);
+  --color-night: var(--night);
+  --color-night-deep: var(--night-deep);
+  --color-starlight: var(--starlight);
   --font-serif: var(--font-newsreader), Georgia, "Times New Roman", serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
@@ -98,7 +106,7 @@ body:has(.universe-page) {
   background: #03050d;
 }
 body:has(.universe-page) > header {
-  background: rgb(3 5 13 / 0.55);
+  background: color-mix(in srgb, var(--night-deep) 55%, transparent);
   border-color: rgb(255 255 255 / 0.08);
   color: #fff;
 }
@@ -162,7 +170,7 @@ body:has(.universe-page) > footer {
    behind the whole page, so the root carries the dark colour and the body
    lets it through. */
 html:has(.sky-page) {
-  background: #03050d;
+  background: var(--night-deep);
 }
 body:has(.sky-page) {
   background: transparent;

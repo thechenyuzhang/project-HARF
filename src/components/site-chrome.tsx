@@ -8,8 +8,7 @@ export const SURVEY_URL = "https://tally.so/r/RWKrVl";
 const PREVIEW = process.env.NEXT_PUBLIC_HARF_PREVIEW === "true";
 
 export const NAV = [
-  { href: "/share/", label: "Share" },
-  { href: "/archive/", label: "Archive" },
+  { href: "/archive/", label: "Living Archive" },
   { href: "/survey/", label: "Survey" },
   { href: "/about/", label: "About" },
 ];
@@ -64,7 +63,17 @@ export function SiteHeader() {
             Share your story
           </Link>
         </nav>
-        <MobileMenu />
+        <div className="flex items-center gap-2 md:hidden">
+          <Link
+            href="/share/"
+            data-track="share_click"
+            data-track-from="header"
+            className="rounded-full bg-accent px-4 py-2 text-sm text-card transition-colors hover:bg-ink"
+          >
+            Share your story
+          </Link>
+          <MobileMenu />
+        </div>
       </div>
     </header>
   );
@@ -78,7 +87,7 @@ export function SiteFooter() {
         <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-card/75 [&_a]:py-1.5">
           <Link className="hover:text-card" href="/share/">Share</Link>
           <Link className="hover:text-card" href="/survey/">Survey</Link>
-          <Link className="hover:text-card" href="/archive/">Archive</Link>
+          <Link className="hover:text-card" href="/archive/">Living Archive</Link>
           <Link className="hover:text-card" href="/about/">About</Link>
           <Link className="hover:text-card" href="/privacy/">Privacy</Link>
           <Link className="hover:text-card" href="/admin/">Editors</Link>

@@ -194,6 +194,8 @@ function TestimonyDetail({
   const [featured, setFeatured] = useState(false);
   const [exactDate, setExactDate] = useState(t.consentNamedCredit === true);
   const [approvedEdits, setApprovedEdits] = useState(false);
+  const [authorConfirmed, setAuthorConfirmed] = useState(false);
+  const needsConfirmation = !!t.followUpOf && t.authorVerified !== true;
   const bodyEdited = !!body.trim() && !sameText(body, t.originalText);
   // Where the constellation matcher would place this testimony, for the editor to confirm or correct.
   const suggestion = useMemo(() => matchThemes(t.originalText), [t.originalText]);
@@ -275,6 +277,7 @@ function TestimonyDetail({
           featured: t.excerptId ? undefined : featured,
           exactDate: credit || exactDate,
           authorApprovedEdits: bodyEdited ? approvedEdits : undefined,
+          authorConfirmed: needsConfirmation ? authorConfirmed : undefined,
         },
         auth,
       );
@@ -332,6 +335,7 @@ function TestimonyDetail({
             Open the original story
           </button>
         ) : null}
+        {needsConfirmation ? <Badge tone="accent">Sent without a code · confirm with the author</Badge> : null}
         {t.synthetic ? <Badge tone="accent">Synthetic sample</Badge> : null}
         {(t.entryNumber ?? 1) > 1 || history.length > 1 ? (
           <Badge tone="accent">
@@ -590,6 +594,12 @@ function TestimonyDetail({
                 </label>
               ) : null}
             </fieldset>
+            {needsConfirmation ? (
+              <label className="flex items-start gap-2 rounded-sm border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
+                <input type="checkbox" checked={authorConfirmed} onChange={(e) => setAuthorConfirmed(e.target.checked)} className="mt-0.5 size-4 accent-accent" />
+                I confirmed with the author (by the email above) that this reflection is theirs.
+              </label>
+            ) : null}
             {bodyEdited ? (
               <label className="flex items-start gap-2 rounded-sm border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
                 <input type="checkbox" checked={approvedEdits} onChange={(e) => setApprovedEdits(e.target.checked)} className="mt-0.5 size-4 accent-accent" />
@@ -610,7 +620,7 @@ function TestimonyDetail({
           Save
         </button>
         {t.consentPublish ? (
-          <button type="button" onClick={publish} disabled={busy || !excerpt.trim() || status === "WITHDRAWN" || (bodyEdited && !approvedEdits)} className={secondaryButton}>
+          <button type="button" onClick={publish} disabled={busy || !excerpt.trim() || status === "WITHDRAWN" || (bodyEdited && !approvedEdits) || (needsConfirmation && !authorConfirmed)} className={secondaryButton}>
             {t.excerptId ? "Update published excerpt" : "Approve & publish excerpt"}
           </button>
         ) : null}

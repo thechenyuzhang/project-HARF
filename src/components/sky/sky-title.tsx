@@ -1,5 +1,5 @@
 import { Cormorant_Garamond, Josefin_Sans } from "next/font/google";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { Look, LookId, Title } from "./looks";
 
 // The fonts and title treatments shared by the home page and /concepts.
@@ -41,7 +41,7 @@ export const TITLE_TYPE: Record<LookId, { hero: string; block: string; kicker: s
 };
 
 /** The title, arriving a letter at a time; a few letters catch the light and keep twinkling. */
-export function SkyTitle({ look, title }: { look: Look; title: Title }) {
+export function SkyTitle({ look, title, children }: { look: Look; title: Title; children?: ReactNode }) {
   const type = TITLE_TYPE[look.id];
   const words = title.main.split(" ");
   const lettersBefore = (index: number) => words.slice(0, index).reduce((n, word) => n + word.length, 0);
@@ -95,6 +95,11 @@ export function SkyTitle({ look, title }: { look: Look; title: Title }) {
       <p className={`concept-fade text-white/80 ${type.sub}`} style={{ "--d": `${settled + 0.2}s` } as CSSProperties}>
         {title.sub}
       </p>
+      {children ? (
+        <div className="concept-fade" style={{ "--d": `${settled + 0.6}s` } as CSSProperties}>
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }

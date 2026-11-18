@@ -29,6 +29,7 @@ type PublishArgs = {
   featured?: boolean | null;
   exactDate?: boolean | null;
   authorApprovedEdits?: boolean | null;
+  authorConfirmed?: boolean | null;
 };
 
 const clean = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
@@ -68,6 +69,9 @@ async function publish(args: PublishArgs) {
   }
   // A reflection appears beneath the story it returns to, so that story must be public.
   let parentId: string | undefined;
+  if (testimony.followUpOf && testimony.authorVerified !== true && args.authorConfirmed !== true) {
+    throw new Error("This reflection came without a participant code. Confirm with the author before publishing it.");
+  }
   if (testimony.followUpOf) {
     const parent = await loadTestimony(testimony.followUpOf as string);
     if (!parent.excerptId) throw new Error("Publish the original story before this reflection.");
