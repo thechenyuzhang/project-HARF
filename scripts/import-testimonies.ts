@@ -17,6 +17,9 @@
  *   to them; only its hash is stored.
  * - Existing records are never overwritten, so editorial work done in the
  *   dashboard survives a re-run.
+ * - A contributor who agreed in writing to be named can carry a `credit`
+ *   (name and affiliation line); it stays private until an editor publishes
+ *   with credit, and the editorial function checks consentNamedCredit again.
  * - Records arrive as NEW. Publishing an excerpt still goes through the editor
  *   dashboard, which checks publication consent.
  */
@@ -41,6 +44,8 @@ type Entry = {
   id: string;
   file: string;
   submittedAt: string;
+  /** The piece's title, if it has one. */
+  title?: string;
   language?: string;
   participantCode?: string;
   relationship?: string;
@@ -53,10 +58,13 @@ type Entry = {
   aiUseFrequency?: string;
   themes?: string[];
   editorNotes?: string;
+  /** Only for contributors who agreed in writing to be named (consent.namedCredit). */
+  credit?: { name: string; line?: string };
   consent: {
     research: boolean | null;
     publish: boolean | null;
     contact: boolean;
+    namedCredit?: boolean;
     recordedAt: string;
     version: string;
   };
@@ -86,6 +94,8 @@ function check(e: Entry): string[] {
   if (typeof e.consent?.research !== "boolean") problems.push("consent.research is not confirmed (true or false)");
   if (typeof e.consent?.publish !== "boolean") problems.push("consent.publish is not confirmed (true or false)");
   if (e.consent?.research === false) problems.push("no research consent: this testimony should not be imported");
+  if (e.credit && e.consent?.namedCredit !== true) problems.push("credit given without consent.namedCredit: true");
+  if (e.credit && e.consent?.publish !== true) problems.push("credit given without publication consent");
   oneOf("relationship", e.relationship, RELATIONSHIPS);
   oneOf("academicStage", e.academicStage, ACADEMIC_STAGES);
   oneOf("mainAiTool", e.mainAiTool, AI_TOOLS);
@@ -113,7 +123,10 @@ async function main() {
     const tone = readTone(text);
     console.log(`\n${e.id}  (${e.file})`);
     console.log(`  ${text.split(/\s+/).length} words · tone ${tone?.tone ?? "—"} · themes ${(e.themes ?? []).join(", ") || "—"}`);
-    console.log(`  consent: research ${e.consent?.research}, publish ${e.consent?.publish}, contact ${e.consent?.contact}`);
+    console.log(
+      `  consent: research ${e.consent?.research}, publish ${e.consent?.publish}, contact ${e.consent?.contact}` +
+        (e.credit ? `, named credit ${e.consent?.namedCredit}` : ""),
+    );
     for (const p of problems) console.log(`  ✘ ${p}`);
     if (problems.length) blocked = true;
     return { e, text, tone };
@@ -165,6 +178,10 @@ async function main() {
       consentContact: e.consent.contact,
       consentVersion: e.consent.version,
       consentRecordedAt: new Date(e.consent.recordedAt).toISOString(),
+      consentNamedCredit: e.credit ? e.consent.namedCredit === true : undefined,
+      creditName: e.credit?.name,
+      creditLine: e.credit?.line,
+      title: e.title,
       synthetic: false,
       tone: tone?.tone,
       editorialStatus: "NEW",

@@ -10,6 +10,7 @@ import {
   THEMES,
   type EditorialStatus,
 } from "@/lib/harf";
+import { scoreThemes, matchThemes } from "@/lib/constellation";
 import { MediaGallery } from "./media-gallery";
 import { Badge, Notice, STATUS_LABEL, inputClass, primaryButton, secondaryButton } from "./ui";
 
@@ -170,6 +171,19 @@ function TestimonyDetail({
   const [notes, setNotes] = useState(t.editorNotes ?? "");
   const [excerpt, setExcerpt] = useState(t.excerptDraft ?? "");
   const [category, setCategory] = useState(t.relationship ?? "Participant");
+  const [title, setTitle] = useState(t.title ?? "");
+  const [body, setBody] = useState("");
+  const [showCountry, setShowCountry] = useState(true);
+  const [showAge, setShowAge] = useState(true);
+  const [credit, setCredit] = useState(t.consentNamedCredit === true);
+  const [featured, setFeatured] = useState(false);
+  // Where the constellation matcher would place this testimony, for the editor to confirm or correct.
+  const suggestion = useMemo(() => matchThemes(t.originalText), [t.originalText]);
+  const evidence = useMemo(
+    () => new Map(scoreThemes(t.originalText).map((m) => [m.theme as string, m.words.slice(0, 4).join(", ")])),
+    [t.originalText],
+  );
+  const publicCountry = t.countryOfBirth || t.country;
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [contact, setContact] = useState<Contact | null>(null);
@@ -225,7 +239,18 @@ function TestimonyDetail({
   const publish = () =>
     run(async () => {
       const { data, errors } = await client.mutations.publishExcerpt(
-        { testimonyId: t.id, text: excerpt, themes, participantCategory: category },
+        {
+          testimonyId: t.id,
+          text: excerpt,
+          themes,
+          participantCategory: category,
+          title: title || null,
+          body: body || null,
+          showCountry,
+          showAge,
+          credit,
+          featured: t.excerptId ? undefined : featured,
+        },
         auth,
       );
       if (!data) throw new Error(errorMessage(errors, "Could not publish."));
@@ -307,6 +332,13 @@ function TestimonyDetail({
         ) : null}
         <div className="rounded-sm border border-rule bg-card p-6">
           <p className="eyebrow mb-3">Original testimony · preserved, read-only</p>
+          {t.title ? <p className="mb-3 font-serif text-2xl">{t.title}</p> : null}
+          {t.creditName ? (
+            <p className="mb-4 text-sm text-muted">
+              {t.creditName}
+              {t.creditLine ? ` · ${t.creditLine}` : ""}
+            </p>
+          ) : null}
           <p className="whitespace-pre-wrap font-serif text-lg leading-relaxed">{t.originalText}</p>
         </div>
       </div>
@@ -364,6 +396,7 @@ function TestimonyDetail({
             <Badge tone={t.consentResearch ? "ok" : "no"}>Research</Badge>
             <Badge tone={t.consentPublish ? "ok" : "no"}>Publish {t.consentPublish ? "✓" : "✗"}</Badge>
             <Badge tone={t.consentContact ? "ok" : "no"}>Contact {t.consentContact ? "✓" : "✗"}</Badge>
+            {t.consentNamedCredit ? <Badge tone="ok">Named credit ✓</Badge> : null}
           </dd>
         </div>
       </dl>
@@ -399,23 +432,41 @@ function TestimonyDetail({
             </select>
           </label>
           <fieldset className="text-sm">
-            <legend className="mb-1.5 font-medium">Themes</legend>
+            <legend className="mb-1.5 font-medium">Themes · its constellations on the home page</legend>
             <div className="flex flex-wrap gap-1.5">
               {THEMES.map((th) => {
                 const on = themes.includes(th);
+                const suggested = suggestion.includes(th);
                 return (
                   <button
                     key={th}
                     type="button"
                     aria-pressed={on}
+                    title={evidence.get(th) ? `Matched: ${evidence.get(th)}` : undefined}
                     onClick={() => setThemes(on ? themes.filter((x) => x !== th) : [...themes, th])}
-                    className={`rounded-full border px-3 py-1 text-xs ${on ? "border-ink bg-ink text-paper" : "border-rule bg-card hover:border-ink"}`}
+                    className={`rounded-full border px-3 py-1 text-xs ${
+                      on ? "border-ink bg-ink text-paper" : suggested ? "border-dashed border-accent bg-card" : "border-rule bg-card hover:border-ink"
+                    }`}
                   >
                     {th}
                   </button>
                 );
               })}
             </div>
+            <p className="mt-2 text-xs text-muted">
+              {suggestion.length ? (
+                <>
+                  Matcher suggests <strong>{suggestion.join(", ")}</strong> (dashed). Until you save themes, its star sits there.{" "}
+                  {suggestion.join("|") !== themes.join("|") ? (
+                    <button type="button" onClick={() => setThemes(suggestion)} className="underline hover:text-accent">
+                      Use suggestion
+                    </button>
+                  ) : null}
+                </>
+              ) : (
+                "The matcher found no clear theme; choose one so its star joins a constellation."
+              )}
+            </p>
           </fieldset>
         </div>
         <label className="block text-sm">
@@ -445,10 +496,61 @@ function TestimonyDetail({
               placeholder="Select and anonymize a passage. Remove names, institutions and anything identifying."
               className={`${inputClass} font-serif text-base leading-relaxed`}
             />
-            <label className="block max-w-xs text-sm">
-              <span className="mb-1.5 block font-medium">Public participant category</span>
-              <input value={category} onChange={(e) => setCategory(e.target.value)} className={inputClass} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm">
+                <span className="mb-1.5 block font-medium">Title (optional)</span>
+                <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1.5 block font-medium">Public participant category</span>
+                <input value={category} onChange={(e) => setCategory(e.target.value)} className={inputClass} />
+              </label>
+            </div>
+            <label className="block text-sm">
+              <span className="mb-1.5 flex items-center justify-between font-medium">
+                Full testimony (optional) · readable from its star
+                <button type="button" onClick={() => setBody(t.originalText)} className="text-xs font-normal underline hover:text-accent">
+                  Use the full text
+                </button>
+              </span>
+              <textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={body ? 10 : 3}
+                placeholder="Leave empty to publish only the excerpt. Blank lines separate paragraphs; start a line with > for a pull quote."
+                className={`${inputClass} font-serif text-base leading-relaxed`}
+              />
             </label>
+            <fieldset className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+              <legend className="mb-1.5 font-medium">Shown publicly with it</legend>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={showCountry && !!publicCountry} disabled={!publicCountry} onChange={(e) => setShowCountry(e.target.checked)} className="size-4 accent-accent" />
+                Country {publicCountry ? `(${publicCountry})` : "(none given)"}
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={showAge && !!t.ageRange} disabled={!t.ageRange} onChange={(e) => setShowAge(e.target.checked)} className="size-4 accent-accent" />
+                Age range {t.ageRange ? `(${t.ageRange})` : "(none given)"}
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={credit}
+                  disabled={!t.consentNamedCredit}
+                  onChange={(e) => setCredit(e.target.checked)}
+                  className="size-4 accent-accent"
+                />
+                {t.consentNamedCredit ? `Name: ${t.creditName} (with exact date)` : "Name (no named-credit consent)"}
+              </label>
+              {!t.excerptId ? (
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} className="size-4 accent-accent" />
+                  Feature on the home page
+                </label>
+              ) : null}
+            </fieldset>
+            <p className="text-xs text-muted">
+              Leave off anything that, with the text, would let someone recognise this person.
+            </p>
           </>
         )}
       </div>
@@ -499,7 +601,7 @@ function FeatureToggle({ excerptId }: { excerptId: string }) {
         }}
         className="size-4 accent-accent"
       />
-      Feature on homepage
+      Feature on the home page
     </label>
   );
 }

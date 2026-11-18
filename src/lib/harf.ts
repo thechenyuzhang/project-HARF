@@ -159,6 +159,8 @@ export const LIMITS = {
   testimonyMax: 20000,
   shortField: 120,
   excerptMax: 2000,
+  /** A full edited testimony published alongside its excerpt. */
+  bodyMax: 40000,
 } as const;
 
 /** Attachments: images, audio and video, checked again on the server. */
