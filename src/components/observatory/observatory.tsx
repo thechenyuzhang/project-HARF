@@ -1,8 +1,8 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { ArrowRight, Search, X } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { cormorant } from "@/components/sky/sky-title";
 import { client, listAll } from "@/lib/amplify";
 import { THEMES, type Theme } from "@/lib/harf";
 import { Reader, StoryMeta } from "./reader";
@@ -117,7 +117,7 @@ export function Observatory() {
   return (
     <section id="constellations" aria-labelledby="constellations-title" className="relative mx-auto max-w-7xl scroll-mt-24 px-4 pb-28 pt-10 sm:px-8">
       <div className="mx-auto max-w-3xl text-center">
-        <h2 id="constellations-title" className={`text-4xl leading-tight text-white sm:text-6xl ${cormorant.className}`}>
+        <h2 id="constellations-title" className="font-serif text-4xl leading-tight text-white sm:text-6xl">
           Every star is a testimony.
         </h2>
         {data ? (
@@ -141,8 +141,8 @@ export function Observatory() {
             <defs>
               <radialGradient id="obs-glow">
                 <stop offset="0%" stopColor="#fff" stopOpacity="0.9" />
-                <stop offset="35%" stopColor="#dfe6ff" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="#dfe6ff" stopOpacity="0" />
+                <stop offset="35%" style={{ stopColor: "var(--starlight)" }} stopOpacity="0.25" />
+                <stop offset="100%" style={{ stopColor: "var(--starlight)" }} stopOpacity="0" />
               </radialGradient>
             </defs>
             {constellations.map((c) => {
@@ -155,7 +155,7 @@ export function Observatory() {
                 <g key={c.theme} className="transition-opacity duration-500" opacity={dim ? 0.22 : 1}>
                   <path
                     d={c.links.map(([a, b]) => `M${c.placed[a].x} ${c.placed[a].y}L${c.placed[b].x} ${c.placed[b].y}`).join("")}
-                    stroke="#c8d4ff"
+                    style={{ stroke: "var(--starlight)" }}
                     strokeOpacity={filtering ? 0.12 : 0.32}
                     strokeWidth={0.8}
                     fill="none"
@@ -176,7 +176,7 @@ export function Observatory() {
                       x={labelX}
                       y={labelY}
                       textAnchor="middle"
-                      className={`fill-white text-[19px] italic ${cormorant.className}`}
+                      className="fill-white font-serif text-[19px] italic"
                       style={{ letterSpacing: "0.12em" }}
                     >
                       {c.theme}
@@ -201,7 +201,7 @@ export function Observatory() {
           <aside aria-label="Testimonies" className="observatory-rise flex max-h-[42rem] flex-col rounded-lg bg-white/[0.05] ring-1 ring-white/12 backdrop-blur-md">
             <header className="flex items-start justify-between gap-3 border-b border-white/10 p-5">
               <div>
-                <h3 className={`text-3xl text-white ${cormorant.className}`}>{theme ?? "Results"}</h3>
+                <h3 className="font-serif text-3xl text-white">{theme ?? "Results"}</h3>
                 <p className="mt-1 text-xs text-white/55">
                   {listed.length} open
                   {waiting && !filtering ? ` · ${waiting} pending` : ""}
@@ -261,6 +261,17 @@ export function Observatory() {
         </div>
       ) : null}
 
+      <p className="mt-16 text-center">
+        <Link
+          href="/archive/"
+          data-track="archive_click"
+          data-track-from="observatory"
+          className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm text-white ring-1 ring-white/30 transition-colors hover:bg-white hover:text-ink"
+        >
+          Read every story in the Living Archive <ArrowRight aria-hidden className="size-4" />
+        </Link>
+      </p>
+
       {reading ? <Reader story={reading} onClose={closeReader} /> : null}
     </section>
   );
@@ -312,15 +323,15 @@ function StoryButton({ story, onOpen, large = false }: { story: Story; onOpen: (
       }`}
     >
       {story.title ? (
-        <span className={`block text-white ${large ? "text-2xl" : "text-xl"} leading-snug ${cormorant.className}`}>{story.title}</span>
+        <span className={`block font-serif text-white ${large ? "text-2xl" : "text-xl"} leading-snug`}>{story.title}</span>
       ) : null}
       <span
-        className={`block text-white/80 ${story.title ? "mt-2 line-clamp-2 text-sm" : `line-clamp-3 italic leading-snug ${large ? "text-xl" : "text-lg"} ${cormorant.className}`}`}
+        className={`block text-white/80 ${story.title ? "mt-2 line-clamp-2 text-sm" : `line-clamp-3 italic leading-snug ${large ? "text-xl" : "text-lg"}`}`}
       >
         “{story.text}”
       </span>
       {story.creditName ? <span className="mt-3 block text-sm text-white">{story.creditName}</span> : null}
-      <StoryMeta story={story} className={story.creditName ? "mt-0.5" : "mt-3"} />
+      <StoryMeta story={story} className={`text-white/55 ${story.creditName ? "mt-0.5" : "mt-3"}`} />
     </button>
   );
 }
@@ -343,7 +354,7 @@ function FilterBar({
         value={filters[key]}
         onChange={(e) => onChange({ [key]: e.target.value })}
         disabled={!values.length}
-        className="h-10 w-full appearance-none rounded-full bg-white/[0.06] px-4 pr-8 text-sm text-white ring-1 ring-white/15 transition-colors hover:ring-white/30 disabled:opacity-40 [&>option]:bg-[#0b0e19]"
+        className="h-10 w-full appearance-none rounded-full bg-white/[0.06] px-4 pr-8 text-sm text-white ring-1 ring-white/15 transition-colors hover:ring-white/30 disabled:opacity-40 [&>option]:bg-night"
       >
         <option value="">{label}</option>
         {values.map((v) => (

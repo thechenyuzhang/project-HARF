@@ -23,9 +23,9 @@ export const LOOKS: Look[] = [
     id: "letters",
     tab: "Letter Sky",
     note: "Every star is a letter. Constellations spell the words people use about AI.",
-    backdrop: "radial-gradient(120% 90% at 50% 40%, #0b0e19 0%, #05060c 55%, #020308 100%)",
+    backdrop: "radial-gradient(120% 90% at 50% 40%, var(--night) 0%, #05060c 55%, var(--night-deep) 100%)",
     ink: "#ffffff",
-    accent: "#cfd8ff",
+    accent: "#cfd8ff", // = --starlight (the canvas needs a literal colour)
     veil: "3,4,9",
     defaultTitle: "observatory",
   },

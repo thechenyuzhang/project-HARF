@@ -104,6 +104,8 @@ const schema = a.schema({
       creditLine: a.string().authorization(editorsReadOnly),
       // A later reflection on a published story, added by its original contributor.
       followUpOf: a.id().authorization(editorsReadOnly),
+      // The participant code proved authorship; otherwise an editor confirms with the author by email.
+      authorVerified: a.boolean().authorization(editorsReadOnly),
       // Editorial layer. Kept apart from the original text.
       editorialStatus: a.ref("EditorialStatus").required(),
       themes: a.string().array(),
@@ -117,7 +119,7 @@ const schema = a.schema({
     ])
     .authorization((allow) => [allow.group("ADMINS").to(["read", "update"])]),
 
-  ContactPurpose: a.enum(["INTERVIEW", "SIX_MONTH_REVISIT", "COMMUNITY"]),
+  ContactPurpose: a.enum(["INTERVIEW", "SIX_MONTH_REVISIT", "COMMUNITY", "REFLECTION"]),
 
   Contact: a
     .model({
@@ -295,12 +297,14 @@ const schema = a.schema({
     .handler(a.handler.function(submitTestimony)),
 
   // "Revisit this story": the original contributor adds a dated reflection to a
-  // published story. Their participant code proves the story is theirs.
+  // published story. Their participant code proves the story is theirs; without
+  // one (e.g. interviewees), they leave an email and an editor confirms first.
   submitReflection: a
     .mutation()
     .arguments({
       excerptId: a.id().required(),
-      participantCode: a.string().required(),
+      participantCode: a.string(),
+      email: a.string(),
       text: a.string().required(),
       consent: a.boolean().required(),
       consentVersion: a.string().required(),
@@ -325,6 +329,7 @@ const schema = a.schema({
       featured: a.boolean(),
       exactDate: a.boolean(), // show the day, not just the month (always on for credited pieces)
       authorApprovedEdits: a.boolean(), // required when the published text differs from the original
+      authorConfirmed: a.boolean(), // a reflection sent without a code: the editor checked with the author
     })
     .returns(a.ref("Excerpt"))
     .authorization((allow) => [allow.group("ADMINS")])

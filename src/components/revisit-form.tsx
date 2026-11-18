@@ -32,6 +32,7 @@ export function RevisitButton({ excerptId, title, className = "" }: { excerptId:
 
 function RevisitDialog({ excerptId, title, onClose }: { excerptId: string; title?: string | null; onClose: () => void }) {
   const [code, setCode] = useState("");
+  const [email, setEmail] = useState("");
   const [text, setText] = useState("");
   const [consent, setConsent] = useState(false);
   const [website, setWebsite] = useState("");
@@ -57,7 +58,10 @@ function RevisitDialog({ excerptId, title, onClose }: { excerptId: string; title
 
   const normalized = normalizeParticipantCode(code);
   const length = text.trim().length;
-  const ready = PARTICIPANT_CODE_PATTERN.test(normalized) && length >= LIMITS.testimonyMin && consent && !busy;
+  const hasCode = code.trim().length > 0;
+  // A code proves it's you; without one, an email lets an editor confirm before publishing.
+  const identified = hasCode ? PARTICIPANT_CODE_PATTERN.test(normalized) : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const ready = identified && length >= LIMITS.testimonyMin && consent && !busy;
 
   async function submit() {
     setBusy(true);
@@ -65,7 +69,8 @@ function RevisitDialog({ excerptId, title, onClose }: { excerptId: string; title
     try {
       const { data, errors } = await client.mutations.submitReflection({
         excerptId,
-        participantCode: normalized,
+        participantCode: hasCode ? normalized : undefined,
+        email: hasCode ? undefined : email.trim(),
         text,
         consent,
         consentVersion: CONSENT_VERSION,
@@ -114,7 +119,9 @@ function RevisitDialog({ excerptId, title, onClose }: { excerptId: string; title
               className="mt-6 w-full resize-y rounded-lg border border-rule bg-card px-4 py-3 font-serif text-lg leading-relaxed placeholder:text-muted/70 focus:border-ink focus:outline-none"
             />
             <label className="mt-4 block text-sm">
-              <span className="mb-1.5 block font-medium">Your participant code</span>
+              <span className="mb-1.5 block font-medium">
+                Participant code <span className="font-normal text-muted">· if you have one</span>
+              </span>
               <input
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
@@ -123,6 +130,20 @@ function RevisitDialog({ excerptId, title, onClose }: { excerptId: string; title
                 className="w-full rounded-md border border-rule bg-card px-3 py-2.5 font-mono uppercase tracking-wider focus:border-ink focus:outline-none"
               />
             </label>
+            {!hasCode ? (
+              <label className="mt-4 block text-sm">
+                <span className="mb-1.5 block font-medium">
+                  Email <span className="font-normal text-muted">· so we can confirm it&apos;s you</span>
+                </span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  className="w-full rounded-md border border-rule bg-card px-3 py-2.5 focus:border-ink focus:outline-none"
+                />
+              </label>
+            ) : null}
             <label className="mt-4 flex items-start gap-3 text-sm leading-relaxed text-ink-soft">
               <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-accent" />
               {CONSENT_TEXT.reflection}

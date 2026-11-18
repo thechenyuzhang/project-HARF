@@ -33,7 +33,7 @@ const ACTIONS: { href: string; icon: LucideIcon; title: string; text: string; ti
   {
     href: "/archive/",
     icon: Library,
-    title: "Explore the archive",
+    title: "Explore the Living Archive",
     text: "Discover how others are experiencing the AI transition.",
     time: "Browse at your own pace",
     track: "archive_click",
@@ -50,7 +50,30 @@ export default function Home() {
         aria-label="On AI and Us: The Observatory"
         className={`relative mx-auto flex h-[calc(100svh-5.5rem)] min-h-[30rem] max-w-7xl px-6 sm:px-10 ${TITLE_TYPE.letters.hero}`}
       >
-        <SkyTitle look={LOOK} title={TITLE} />
+        <SkyTitle look={LOOK} title={TITLE}>
+          {/* What HARF is (above), how to take part, and where the stories are. */}
+          <p className="mx-auto mt-10 max-w-xl font-serif text-xl leading-snug text-white sm:text-2xl">
+            Tell us about a moment when AI changed how you think, work, create, or see yourself.
+          </p>
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/share/"
+              data-track="share_click"
+              data-track-from="hero"
+              className="rounded-full bg-accent px-7 py-3 text-sm font-medium text-card transition-colors hover:bg-card hover:text-ink"
+            >
+              Share your story
+            </Link>
+            <Link
+              href="/archive/"
+              data-track="archive_click"
+              data-track-from="hero"
+              className="rounded-full px-7 py-3 text-sm text-white ring-1 ring-white/40 transition-colors hover:bg-white/10"
+            >
+              Explore the Living Archive
+            </Link>
+          </div>
+        </SkyTitle>
         <a
           href="#constellations"
           className="concept-fade absolute inset-x-0 bottom-6 mx-auto flex w-fit animate-bounce text-white/55 hover:text-white"

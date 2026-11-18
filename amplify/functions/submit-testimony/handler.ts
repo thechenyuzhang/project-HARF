@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand, QueryCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, QueryCommand, ScanCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { CopyObjectCommand, DeleteObjectCommand, HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import type { Schema } from "../../data/resource";
 import { EMAIL_PATTERN, participantRefFor } from "../shared/participant-ref";
@@ -313,6 +313,29 @@ const submitStory: Schema["submitTestimony"]["functionHandler"] = async (event) 
 };
 
 type ReflectionArgs = Schema["submitReflection"]["args"];
+type Item = Record<string, unknown>;
+
+async function queryAll(input: ConstructorParameters<typeof QueryCommand>[0]): Promise<Item[]> {
+  const items: Item[] = [];
+  let ExclusiveStartKey: Item | undefined;
+  do {
+    const page = await db.send(new QueryCommand({ ...input, ExclusiveStartKey }));
+    items.push(...(page.Items ?? []));
+    ExclusiveStartKey = page.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return items;
+}
+
+async function scanAll(input: ConstructorParameters<typeof ScanCommand>[0]): Promise<Item[]> {
+  const items: Item[] = [];
+  let ExclusiveStartKey: Item | undefined;
+  do {
+    const page = await db.send(new ScanCommand({ ...input, ExclusiveStartKey }));
+    items.push(...(page.Items ?? []));
+    ExclusiveStartKey = page.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return items;
+}
 
 /**
  * A later chapter for a published story. Only its original contributor can add
@@ -330,73 +353,113 @@ async function submitReflection(args: ReflectionArgs): Promise<boolean> {
     if (args.consentVersion !== CONSENT_VERSION) {
       throw new ValidationError("The consent text has changed. Please reload the page and review it again.");
     }
-    const code = normalizeParticipantCode(args.participantCode ?? "");
-    if (!PARTICIPANT_CODE_PATTERN.test(code)) {
-      throw new ValidationError("That participant code doesn't look right. It has the form HARF-XXXX-XXXX-XXXX.");
+    // With a code, authorship is proved here. Without one (interviewees never got
+    // a code), the reflection waits until an editor confirms with the author by email.
+    const rawCode = (args.participantCode ?? "").trim();
+    const email = clean(args.email, 254);
+    let original: Record<string, unknown> | undefined;
+    let entryNumber = 1;
+    if (rawCode) {
+      const code = normalizeParticipantCode(rawCode);
+      if (!PARTICIPANT_CODE_PATTERN.test(code)) {
+        throw new ValidationError("That participant code doesn't look right. It has the form HARF-XXXX-XXXX-XXXX.");
+      }
+      const mine = await queryAll({
+        TableName: TESTIMONY_TABLE,
+        IndexName: "byParticipant",
+        KeyConditionExpression: "participantRef = :p",
+        ExpressionAttributeValues: { ":p": participantRefFor(code) },
+      });
+      original = mine.find((t) => t.excerptId === args.excerptId && !t.followUpOf);
+      if (!original) {
+        throw new ValidationError("That code doesn't match this story. Use the code you received when you first shared it.");
+      }
+      entryNumber = mine.length + 1;
+    } else {
+      if (!email || !EMAIL_PATTERN.test(email)) {
+        throw new ValidationError("Please add your participant code, or an email so we can confirm it's you.");
+      }
+      const found = await scanAll({
+        TableName: TESTIMONY_TABLE,
+        FilterExpression: "excerptId = :e",
+        ExpressionAttributeValues: { ":e": args.excerptId },
+      });
+      original = found.find((t) => !t.followUpOf);
+      if (!original) throw new ValidationError("This story can't be found.");
     }
-    const participantRef = participantRefFor(code);
-    const mine: Record<string, unknown>[] = [];
-    let ExclusiveStartKey: Record<string, unknown> | undefined;
-    do {
-      const page = await db.send(
-        new QueryCommand({
-          TableName: TESTIMONY_TABLE,
-          IndexName: "byParticipant",
-          KeyConditionExpression: "participantRef = :p",
-          ExpressionAttributeValues: { ":p": participantRef },
-          ExclusiveStartKey,
-        }),
-      );
-      mine.push(...(page.Items ?? []));
-      ExclusiveStartKey = page.LastEvaluatedKey;
-    } while (ExclusiveStartKey);
-    const original = mine.find((t) => t.excerptId === args.excerptId && !t.followUpOf);
-    if (!original || original.editorialStatus === "WITHDRAWN") {
-      throw new ValidationError("That code doesn't match this story. Use the code you received when you first shared it.");
-    }
+    if (original.editorialStatus === "WITHDRAWN") throw new ValidationError("This story can't be found.");
+    const verified = !!rawCode;
+    const participantRef = original.participantRef as string;
 
     const now = new Date().toISOString();
+    const reflectionId = randomUUID();
+    const contactId = email && !verified ? randomUUID() : undefined;
     const copy = (k: string) => original[k] as string | undefined;
-    await db.send(
-      new PutCommand({
-        TableName: TESTIMONY_TABLE,
-        ConditionExpression: "attribute_not_exists(id)",
-        Item: {
-          id: randomUUID(),
-          __typename: "Testimony",
-          createdAt: now,
-          updatedAt: now,
-          submittedAt: now,
-          language: copy("language"),
-          originalText: text,
-          channel: "REFLECTION",
-          followUpOf: original.id,
-          participantRef,
-          entryNumber: mine.length + 1,
-          // Context stays the person's own; editors can still leave it off when publishing.
-          relationship: copy("relationship"),
-          academicStage: copy("academicStage"),
-          fieldOfWork: copy("fieldOfWork"),
-          country: copy("country"),
-          countryOfBirth: copy("countryOfBirth"),
-          ageRange: copy("ageRange"),
-          mainAiTool: copy("mainAiTool"),
-          consentResearch: true,
-          consentPublish: true,
-          consentContact: false,
-          consentReview: true,
-          consentNamedCredit: original.consentNamedCredit === true ? true : undefined,
-          creditName: original.consentNamedCredit === true ? copy("creditName") : undefined,
-          creditLine: original.consentNamedCredit === true ? copy("creditLine") : undefined,
-          consentVersion: CONSENT_VERSION,
-          consentRecordedAt: now,
-          synthetic: original.synthetic === true,
-          tone: readTone(text)?.tone,
-          editorialStatus: "NEW",
-          themes: [],
-        },
-      }),
-    );
+    const item = {
+      id: reflectionId,
+      __typename: "Testimony",
+      createdAt: now,
+      updatedAt: now,
+      submittedAt: now,
+      language: copy("language"),
+      originalText: text,
+      channel: "REFLECTION",
+      followUpOf: original.id,
+      authorVerified: verified,
+      contactId,
+      participantRef,
+      entryNumber,
+      // Context stays the person's own; editors can still leave it off when publishing.
+      relationship: copy("relationship"),
+      academicStage: copy("academicStage"),
+      fieldOfWork: copy("fieldOfWork"),
+      country: copy("country"),
+      countryOfBirth: copy("countryOfBirth"),
+      ageRange: copy("ageRange"),
+      mainAiTool: copy("mainAiTool"),
+      consentResearch: true,
+      consentPublish: true,
+      consentContact: false,
+      consentReview: true,
+      consentNamedCredit: original.consentNamedCredit === true ? true : undefined,
+      creditName: original.consentNamedCredit === true ? copy("creditName") : undefined,
+      creditLine: original.consentNamedCredit === true ? copy("creditLine") : undefined,
+      consentVersion: CONSENT_VERSION,
+      consentRecordedAt: now,
+      synthetic: original.synthetic === true,
+      tone: readTone(text)?.tone,
+      editorialStatus: "NEW",
+      themes: [],
+    };
+    const put = { TableName: TESTIMONY_TABLE, Item: item, ConditionExpression: "attribute_not_exists(id)" };
+    if (contactId) {
+      await db.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            { Put: put },
+            {
+              Put: {
+                TableName: CONTACT_TABLE,
+                Item: {
+                  id: contactId,
+                  __typename: "Contact",
+                  purpose: "REFLECTION",
+                  source: "reflection",
+                  testimonyId: reflectionId,
+                  participantRef,
+                  email,
+                  consentVersion: CONSENT_VERSION,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+              },
+            },
+          ],
+        }),
+      );
+    } else {
+      await db.send(new PutCommand(put));
+    }
     return true;
   } catch (err) {
     if (err instanceof ValidationError) throw new Error(err.message);
