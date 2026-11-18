@@ -27,6 +27,11 @@ export const THEME_LEXICON: Record<Theme, readonly string[]> = {
     "personality", "complex", "becoming ourselves", "who we are", "i'm the one", "not sure i could", "mine",
     "my own writing", "sounding like", "visual person",
   ],
+  Relationships: [
+    "relationship", "friend", "husband", "wife", "partner", "family", "parent", "mother", "father", "uncle",
+    "sister", "brother", "child", "loved one", "love", "lonel", "solitude", "connect", "together", "favor",
+    "therap", "emotional", "talk to", "call a friend", "people i used to", "each other", "one another",
+  ],
   Trust: [
     "trust", "believ", "verif", "accura", "hallucinat", "reliab", "fact", "source", "honest", "decept", "deceiv",
     "lie", "lied", "privacy", "knows my", "knew my", "know my", "disclosed", "true", "skeptic", "transparen",
@@ -49,8 +54,8 @@ export const THEME_LEXICON: Record<Theme, readonly string[]> = {
   ],
   "Human Agency": [
     "choice", "choose", "chose", "decide", "decision", "control", "agency", "freedom", "autonom", "judgment",
-    "discernment", "my own", "ourselves", "think for", "relationship", "friend", "husband", "wife", "partner",
-    "family", "people", "human", "conversation", "community", "slow down", "on my own", "deciding",
+    "discernment", "my own", "ourselves", "think for",
+    "people", "human", "community", "slow down", "on my own", "deciding",
     "still be mine", "allowed",
   ],
 };

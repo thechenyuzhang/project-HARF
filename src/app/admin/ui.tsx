@@ -29,10 +29,11 @@ export function Notice({ kind, children }: { kind: "error" | "ok"; children: Rea
 }
 
 export const STATUS_LABEL: Record<string, string> = {
-  NEW: "New",
+  NEW: "Pending review",
   IN_REVIEW: "In review",
   APPROVED: "Approved",
   PUBLISHED: "Published",
   ARCHIVED: "Archived",
+  REJECTED: "Rejected",
   WITHDRAWN: "Withdrawn",
 };

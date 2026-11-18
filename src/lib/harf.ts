@@ -5,6 +5,7 @@ export const THEMES = [
   "Learning",
   "Authorship",
   "Identity",
+  "Relationships",
   "Trust",
   "Dependency",
   "Creativity",
@@ -14,6 +15,10 @@ export const THEMES = [
 export type Theme = (typeof THEMES)[number];
 
 export const OPTIONAL_PROMPTS = [
+  {
+    id: "moment",
+    text: "Tell us about a moment when AI changed something in your life — or made you question something you previously believed.",
+  },
   { id: "confidence", text: "Has AI changed how confident you feel about your own thinking?" },
   { id: "hidden", text: "Have you ever hidden how much you rely on AI?" },
   { id: "discovery", text: "Has AI helped you discover an ability you didn't know you had?" },
@@ -131,6 +136,7 @@ export const EDITORIAL_STATUSES = [
   "APPROVED",
   "PUBLISHED",
   "ARCHIVED",
+  "REJECTED",
   "WITHDRAWN",
 ] as const;
 export type EditorialStatus = (typeof EDITORIAL_STATUSES)[number];
@@ -139,13 +145,17 @@ export type EditorialStatus = (typeof EDITORIAL_STATUSES)[number];
  * The consent wording a participant agrees to. Bump the version whenever the
  * text changes: every testimony stores the version it was submitted under.
  */
-export const CONSENT_VERSION = "2026-10-29.v3";
+export const CONSENT_VERSION = "2026-11-18.v4";
 
 export const CONSENT_TEXT = {
   research:
     "I am 18 or older, and I agree that HARF may store my contribution and analyze it for the research purposes described in the privacy notice. This is required to submit.",
   publish:
     "HARF may publish an anonymized excerpt of my contribution in the Living Archive after editorial review. Nothing is published automatically.",
+  review:
+    "I understand that every story is reviewed before publication, and that submitting does not guarantee it will be published. This is required to submit.",
+  reflection:
+    "I wrote the original story. HARF may store this reflection with it and, after review, publish it beneath the story with its own date. The original stays as it is.",
   contact:
     "HARF may contact me about a future interview. My contact details are stored separately from my testimony and never published.",
   revisit:
@@ -153,6 +163,20 @@ export const CONSENT_TEXT = {
   community:
     "HARF may email me occasional community updates and invitations to share my experience. My email is stored separately from any contribution, never published or shared, and I can ask to be removed at any time.",
 } as const;
+
+/**
+ * Same words, ignoring spacing, quote styles and pull-quote markers. A full text
+ * that differs from the original goes public only with the author's approval.
+ */
+export function sameText(a: string, b: string): boolean {
+  const norm = (t: string) =>
+    t.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/^>\s?/gm, "").replace(/\s+/g, " ").trim();
+  return norm(a) === norm(b);
+}
+
+/** Shown where people share, so they know a story can grow over time. */
+export const REVISIT_NOTE =
+  "Your story doesn't have to be your final word. You can return to it later, reflect on what has changed, and add a new chapter. Your original account will remain part of the archive.";
 
 export const LIMITS = {
   testimonyMin: 20,

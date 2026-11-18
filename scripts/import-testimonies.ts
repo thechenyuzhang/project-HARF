@@ -33,6 +33,7 @@ import { participantRefFor } from "../amplify/functions/shared/participant-ref";
 import {
   ACADEMIC_STAGES,
   AI_TOOLS,
+  AGE_RANGES,
   AI_USE_FREQUENCIES,
   PARTICIPANT_CODE_ALPHABET,
   RELATIONSHIPS,
@@ -53,6 +54,7 @@ type Entry = {
   fieldOfWork?: string;
   country?: string;
   countryOfBirth?: string;
+  ageRange?: string;
   mainAiTool?: string;
   otherAiTools?: string[];
   aiUseFrequency?: string;
@@ -100,6 +102,7 @@ function check(e: Entry): string[] {
   oneOf("academicStage", e.academicStage, ACADEMIC_STAGES);
   oneOf("mainAiTool", e.mainAiTool, AI_TOOLS);
   oneOf("aiUseFrequency", e.aiUseFrequency, AI_USE_FREQUENCIES);
+  oneOf("ageRange", e.ageRange, AGE_RANGES);
   for (const tool of e.otherAiTools ?? []) oneOf("otherAiTools", tool, AI_TOOLS);
   for (const theme of e.themes ?? []) oneOf("themes", theme, THEMES);
   return problems;
@@ -170,6 +173,7 @@ async function main() {
       fieldOfWork: e.fieldOfWork,
       country: e.country,
       countryOfBirth: e.countryOfBirth,
+      ageRange: e.ageRange,
       mainAiTool: e.mainAiTool,
       otherAiTools: e.otherAiTools,
       aiUseFrequency: e.aiUseFrequency,

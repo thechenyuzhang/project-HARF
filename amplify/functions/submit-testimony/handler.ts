@@ -116,7 +116,7 @@ function newParticipantCode(): string {
 }
 
 
-export const handler: Schema["submitTestimony"]["functionHandler"] = async (event) => {
+const submitStory: Schema["submitTestimony"]["functionHandler"] = async (event) => {
   const args = event.arguments;
 
   // Honeypot filled in: behave as if it worked, store nothing.
@@ -134,6 +134,9 @@ export const handler: Schema["submitTestimony"]["functionHandler"] = async (even
     }
     if (args.consentResearch !== true) {
       throw new ValidationError("Consent to store and analyze the contribution is required.");
+    }
+    if (args.consentReview !== true) {
+      throw new ValidationError("Please confirm that you understand stories are reviewed before publication.");
     }
     if (args.consentVersion !== CONSENT_VERSION) {
       throw new ValidationError("The consent text has changed. Please reload the page and review it again.");
@@ -252,6 +255,7 @@ export const handler: Schema["submitTestimony"]["functionHandler"] = async (even
       consentResearch: true,
       consentPublish: args.consentPublish === true,
       consentContact,
+      consentReview: true,
       consentVersion: CONSENT_VERSION,
       consentRecordedAt: now,
       contactId,
@@ -306,4 +310,110 @@ export const handler: Schema["submitTestimony"]["functionHandler"] = async (even
     console.error("submitTestimony failed", err);
     throw new Error("We couldn't save your testimony. Please try again in a moment.");
   }
+};
+
+type ReflectionArgs = Schema["submitReflection"]["args"];
+
+/**
+ * A later chapter for a published story. Only its original contributor can add
+ * one: the participant code must belong to the testimony behind the excerpt.
+ * The reflection is stored as its own testimony, pending review; the original
+ * is never touched.
+ */
+async function submitReflection(args: ReflectionArgs): Promise<boolean> {
+  if (args.website) return true;
+  try {
+    const text = (args.text ?? "").trim();
+    if (text.length < LIMITS.testimonyMin) throw new ValidationError(`Please write at least ${LIMITS.testimonyMin} characters.`);
+    if (text.length > LIMITS.testimonyMax) throw new ValidationError(`Reflections are limited to ${LIMITS.testimonyMax} characters.`);
+    if (args.consent !== true) throw new ValidationError("Please confirm the consent statement.");
+    if (args.consentVersion !== CONSENT_VERSION) {
+      throw new ValidationError("The consent text has changed. Please reload the page and review it again.");
+    }
+    const code = normalizeParticipantCode(args.participantCode ?? "");
+    if (!PARTICIPANT_CODE_PATTERN.test(code)) {
+      throw new ValidationError("That participant code doesn't look right. It has the form HARF-XXXX-XXXX-XXXX.");
+    }
+    const participantRef = participantRefFor(code);
+    const mine: Record<string, unknown>[] = [];
+    let ExclusiveStartKey: Record<string, unknown> | undefined;
+    do {
+      const page = await db.send(
+        new QueryCommand({
+          TableName: TESTIMONY_TABLE,
+          IndexName: "byParticipant",
+          KeyConditionExpression: "participantRef = :p",
+          ExpressionAttributeValues: { ":p": participantRef },
+          ExclusiveStartKey,
+        }),
+      );
+      mine.push(...(page.Items ?? []));
+      ExclusiveStartKey = page.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+    const original = mine.find((t) => t.excerptId === args.excerptId && !t.followUpOf);
+    if (!original || original.editorialStatus === "WITHDRAWN") {
+      throw new ValidationError("That code doesn't match this story. Use the code you received when you first shared it.");
+    }
+
+    const now = new Date().toISOString();
+    const copy = (k: string) => original[k] as string | undefined;
+    await db.send(
+      new PutCommand({
+        TableName: TESTIMONY_TABLE,
+        ConditionExpression: "attribute_not_exists(id)",
+        Item: {
+          id: randomUUID(),
+          __typename: "Testimony",
+          createdAt: now,
+          updatedAt: now,
+          submittedAt: now,
+          language: copy("language"),
+          originalText: text,
+          channel: "REFLECTION",
+          followUpOf: original.id,
+          participantRef,
+          entryNumber: mine.length + 1,
+          // Context stays the person's own; editors can still leave it off when publishing.
+          relationship: copy("relationship"),
+          academicStage: copy("academicStage"),
+          fieldOfWork: copy("fieldOfWork"),
+          country: copy("country"),
+          countryOfBirth: copy("countryOfBirth"),
+          ageRange: copy("ageRange"),
+          mainAiTool: copy("mainAiTool"),
+          consentResearch: true,
+          consentPublish: true,
+          consentContact: false,
+          consentReview: true,
+          consentNamedCredit: original.consentNamedCredit === true ? true : undefined,
+          creditName: original.consentNamedCredit === true ? copy("creditName") : undefined,
+          creditLine: original.consentNamedCredit === true ? copy("creditLine") : undefined,
+          consentVersion: CONSENT_VERSION,
+          consentRecordedAt: now,
+          synthetic: original.synthetic === true,
+          tone: readTone(text)?.tone,
+          editorialStatus: "NEW",
+          themes: [],
+        },
+      }),
+    );
+    return true;
+  } catch (err) {
+    if (err instanceof ValidationError) throw new Error(err.message);
+    console.error("submitReflection failed", err);
+    throw new Error("We couldn't save your reflection. Please try again in a moment.");
+  }
+}
+
+type StoryEvent = Parameters<typeof submitStory>[0];
+
+export const handler = async (
+  event: StoryEvent & { info?: { fieldName?: string } },
+  context: Parameters<typeof submitStory>[1],
+  callback: Parameters<typeof submitStory>[2],
+) => {
+  if (event.info?.fieldName === "submitReflection") {
+    return submitReflection(event.arguments as unknown as ReflectionArgs);
+  }
+  return submitStory(event, context, callback);
 };

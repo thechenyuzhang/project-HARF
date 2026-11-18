@@ -3,7 +3,7 @@ import type { AppSyncResolverEvent } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { DeleteObjectsCommand, S3Client } from "@aws-sdk/client-s3";
-import { LIMITS, THEMES } from "../../../src/lib/harf";
+import { LIMITS, THEMES, sameText } from "../../../src/lib/harf";
 
 const db = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
@@ -27,6 +27,8 @@ type PublishArgs = {
   showAge?: boolean | null;
   credit?: boolean | null;
   featured?: boolean | null;
+  exactDate?: boolean | null;
+  authorApprovedEdits?: boolean | null;
 };
 
 const clean = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
@@ -60,6 +62,19 @@ async function publish(args: PublishArgs) {
     throw new Error("This contributor has not agreed to be named, so the piece can't be credited.");
   }
 
+  // The original is preserved; a changed version may go public only with the author's approval.
+  if (body && !sameText(body, String(testimony.originalText ?? "")) && args.authorApprovedEdits !== true) {
+    throw new Error("This full text differs from what the author wrote. Publish it only once the author has approved the edits.");
+  }
+  // A reflection appears beneath the story it returns to, so that story must be public.
+  let parentId: string | undefined;
+  if (testimony.followUpOf) {
+    const parent = await loadTestimony(testimony.followUpOf as string);
+    if (!parent.excerptId) throw new Error("Publish the original story before this reflection.");
+    parentId = parent.excerptId as string;
+  }
+  const exactDate = credited || args.exactDate === true;
+
   const themes = (args.themes ?? []).filter((t): t is string => !!t && (THEMES as readonly string[]).includes(t));
   const now = new Date().toISOString();
   const excerptId = (testimony.excerptId as string | undefined) ?? randomUUID();
@@ -83,11 +98,12 @@ async function publish(args: PublishArgs) {
     creditName: credited ? clean(testimony.creditName) : undefined,
     creditLine: credited ? clean(testimony.creditLine) : undefined,
     language: testimony.language,
-    // Only the month is shown for anonymous pieces; credited ones keep their day.
-    contributedOn: credited
+    // The month by default; the exact day for credited pieces or when the editor shows it.
+    contributedOn: exactDate
       ? (testimony.submittedAt as string).slice(0, 10)
       : `${(testimony.submittedAt as string).slice(0, 7)}-01`,
-    exactDate: credited,
+    exactDate,
+    parentId,
     publishedAt: now,
     synthetic: testimony.synthetic === true,
     featured: typeof args.featured === "boolean" ? args.featured : existing?.featured === true,

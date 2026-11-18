@@ -8,6 +8,7 @@ import {
   LANGUAGES,
   OPENING_QUESTION,
   THEMES,
+  sameText,
   type EditorialStatus,
 } from "@/lib/harf";
 import { scoreThemes, matchThemes } from "@/lib/constellation";
@@ -18,6 +19,10 @@ const auth = { authMode: "userPool" } as const;
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function formatDay(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { dateStyle: "medium", timeZone: "UTC" });
 }
 
 async function fetchTestimonies() {
@@ -113,7 +118,17 @@ export function TestimonyReview() {
               >
                 <span className="flex items-center justify-between gap-2 text-xs text-muted">
                   <span>{formatDateTime(t.submittedAt)}</span>
-                  <Badge tone={t.editorialStatus === "NEW" ? "accent" : t.editorialStatus === "PUBLISHED" ? "ok" : "neutral"}>
+                  <Badge
+                    tone={
+                      t.editorialStatus === "NEW"
+                        ? "accent"
+                        : t.editorialStatus === "PUBLISHED"
+                          ? "ok"
+                          : t.editorialStatus === "REJECTED"
+                            ? "no"
+                            : "neutral"
+                    }
+                  >
                     {STATUS_LABEL[t.editorialStatus]}
                   </Badge>
                 </span>
@@ -177,6 +192,9 @@ function TestimonyDetail({
   const [showAge, setShowAge] = useState(true);
   const [credit, setCredit] = useState(t.consentNamedCredit === true);
   const [featured, setFeatured] = useState(false);
+  const [exactDate, setExactDate] = useState(t.consentNamedCredit === true);
+  const [approvedEdits, setApprovedEdits] = useState(false);
+  const bodyEdited = !!body.trim() && !sameText(body, t.originalText);
   // Where the constellation matcher would place this testimony, for the editor to confirm or correct.
   const suggestion = useMemo(() => matchThemes(t.originalText), [t.originalText]);
   const evidence = useMemo(
@@ -220,6 +238,11 @@ function TestimonyDetail({
 
   const save = () =>
     run(async () => {
+      // Rejecting or archiving a published story takes it out of the archive too.
+      if (t.excerptId && (status === "REJECTED" || status === "ARCHIVED")) {
+        const res = await client.mutations.unpublishExcerpt({ testimonyId: t.id }, auth);
+        if (res.errors?.length) throw new Error(errorMessage(res.errors, "Could not unpublish."));
+      }
       const { data, errors } = await client.models.Testimony.update(
         {
           id: t.id,
@@ -250,6 +273,8 @@ function TestimonyDetail({
           showAge,
           credit,
           featured: t.excerptId ? undefined : featured,
+          exactDate: credit || exactDate,
+          authorApprovedEdits: bodyEdited ? approvedEdits : undefined,
         },
         auth,
       );
@@ -299,7 +324,14 @@ function TestimonyDetail({
         <span>·</span>
         <span className="font-mono">{t.id.slice(0, 8)}</span>
         {language ? <Badge>{language}</Badge> : null}
-        <Badge>{t.channel === "WEEKLY_QUESTION" ? "Question of the Week" : "Open testimony"}</Badge>
+        <Badge>
+          {t.channel === "WEEKLY_QUESTION" ? "Question of the Week" : t.channel === "REFLECTION" ? "Reflection" : "Open testimony"}
+        </Badge>
+        {t.followUpOf ? (
+          <button type="button" onClick={() => onSelect(t.followUpOf!)} className="underline hover:text-accent">
+            Open the original story
+          </button>
+        ) : null}
         {t.synthetic ? <Badge tone="accent">Synthetic sample</Badge> : null}
         {(t.entryNumber ?? 1) > 1 || history.length > 1 ? (
           <Badge tone="accent">
@@ -541,6 +573,16 @@ function TestimonyDetail({
                 />
                 {t.consentNamedCredit ? `Name: ${t.creditName} (with exact date)` : "Name (no named-credit consent)"}
               </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={credit || exactDate}
+                  disabled={credit}
+                  onChange={(e) => setExactDate(e.target.checked)}
+                  className="size-4 accent-accent"
+                />
+                Exact date ({formatDay(t.submittedAt)})
+              </label>
               {!t.excerptId ? (
                 <label className="flex items-center gap-2">
                   <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} className="size-4 accent-accent" />
@@ -548,6 +590,12 @@ function TestimonyDetail({
                 </label>
               ) : null}
             </fieldset>
+            {bodyEdited ? (
+              <label className="flex items-start gap-2 rounded-sm border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
+                <input type="checkbox" checked={approvedEdits} onChange={(e) => setApprovedEdits(e.target.checked)} className="mt-0.5 size-4 accent-accent" />
+                The full text differs from the original. The author has approved these edits.
+              </label>
+            ) : null}
             <p className="text-xs text-muted">
               Leave off anything that, with the text, would let someone recognise this person.
             </p>
@@ -562,7 +610,7 @@ function TestimonyDetail({
           Save
         </button>
         {t.consentPublish ? (
-          <button type="button" onClick={publish} disabled={busy || !excerpt.trim() || status === "WITHDRAWN"} className={secondaryButton}>
+          <button type="button" onClick={publish} disabled={busy || !excerpt.trim() || status === "WITHDRAWN" || (bodyEdited && !approvedEdits)} className={secondaryButton}>
             {t.excerptId ? "Update published excerpt" : "Approve & publish excerpt"}
           </button>
         ) : null}

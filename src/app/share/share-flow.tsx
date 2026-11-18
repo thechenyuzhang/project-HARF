@@ -7,6 +7,7 @@ import {
   Lightbulb,
   Mail,
   PenLine,
+  Repeat,
   ShieldCheck,
   Sparkles,
   UserRound,
@@ -41,6 +42,7 @@ import {
   OPTIONAL_PROMPTS,
   PARTICIPANT_CODE_PATTERN,
   RELATIONSHIPS,
+  REVISIT_NOTE,
   normalizeParticipantCode,
 } from "@/lib/harf";
 
@@ -106,6 +108,7 @@ export function ShareFlow() {
 
   // Step 3
   const [consentResearch, setConsentResearch] = useState(false);
+  const [consentReview, setConsentReview] = useState(false);
   const [consentPublish, setConsentPublish] = useState(false);
   const [consentContact, setConsentContact] = useState(false);
   const [contactName, setContactName] = useState("");
@@ -202,6 +205,7 @@ export function ShareFlow() {
         consentResearch,
         consentPublish,
         consentContact,
+        consentReview,
         consentVersion: CONSENT_VERSION,
         contactName: consentContact ? contactName || undefined : undefined,
         contactEmail: consentContact ? contactEmail || undefined : undefined,
@@ -418,6 +422,11 @@ export function ShareFlow() {
             </div>
           </div>
 
+          <p className="mt-8 flex gap-3 rounded-lg bg-accent-soft/60 px-5 py-4 text-sm leading-relaxed text-ink-soft">
+            <Repeat aria-hidden className="mt-0.5 size-4 shrink-0 text-accent" />
+            {REVISIT_NOTE}
+          </p>
+
           <Nav>
             <span />
             <button type="button" disabled={!canContinue} onClick={() => setStep("context")} className={primaryButton}>
@@ -582,7 +591,7 @@ export function ShareFlow() {
         <section>
           <h1 className="font-serif text-3xl leading-tight sm:text-4xl">How may we use it?</h1>
           <p className="mt-3 text-muted">
-            Only the first is required.{" "}
+            The first two are required.{" "}
             <Link href="/privacy/" target="_blank" className="underline hover:text-accent">
               Privacy notice
             </Link>
@@ -597,6 +606,15 @@ export function ShareFlow() {
               required
             >
               {CONSENT_TEXT.research}
+            </Consent>
+            <Consent
+              checked={consentReview}
+              onChange={setConsentReview}
+              title="Reviewed before publication"
+              icon={ShieldCheck}
+              required
+            >
+              {CONSENT_TEXT.review}
             </Consent>
             <Consent
               checked={consentPublish}
@@ -657,7 +675,7 @@ export function ShareFlow() {
             </button>
             <button
               type="button"
-              disabled={!consentResearch || submitting || (consentContact && !contactEmail.trim())}
+              disabled={!consentResearch || !consentReview || submitting || (consentContact && !contactEmail.trim())}
               onClick={submit}
               className={primaryButton}
             >

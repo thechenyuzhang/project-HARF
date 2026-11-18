@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { RevisitButton } from "@/components/revisit-form";
 import { cormorant } from "@/components/sky/sky-title";
 import { formatDate, type Story } from "./stories";
 
@@ -109,6 +110,24 @@ export function Reader({ story, onClose }: { story: Story; onClose: () => void }
         {long ? (
           <div className="mt-10 text-[1.05rem] leading-relaxed">
             <Body text={story.body!} />
+          </div>
+        ) : null}
+        {story.reflections?.map((r) => (
+          <section key={r.id} className="mt-14 border-t border-white/15 pt-8">
+            <p className="eyebrow !text-white/45">{formatDate(r)}</p>
+            {r.title ? <h3 className={`mt-3 text-3xl text-white ${cormorant.className}`}>{r.title}</h3> : null}
+            {r.body ? (
+              <div className="mt-6 text-[1.05rem] leading-relaxed">
+                <Body text={r.body} />
+              </div>
+            ) : (
+              <p className={`mt-4 text-2xl italic leading-snug text-white ${cormorant.className}`}>“{r.text}”</p>
+            )}
+          </section>
+        ))}
+        {!story.synthetic ? (
+          <div className="mt-14 border-t border-white/15 pt-6">
+            <RevisitButton excerptId={story.id} title={story.title} className="text-white/70 hover:text-white" />
           </div>
         ) : null}
       </article>

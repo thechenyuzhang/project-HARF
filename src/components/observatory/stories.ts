@@ -22,6 +22,8 @@ export type Story = {
   creditLine?: string;
   featured: boolean;
   synthetic: boolean;
+  /** Later reflections by the same contributor, oldest first. */
+  reflections?: Story[];
 };
 
 export type SkyStarData = {
@@ -60,6 +62,18 @@ export function toStory(e: Excerpt): Story {
     featured: e.featured === true,
     synthetic: e.synthetic === true,
   };
+}
+
+/** Published stories, each with its reflections attached; reflections whose story is gone are left out. */
+export function storiesFrom(excerpts: Excerpt[]): Story[] {
+  const top = excerpts.filter((e) => !e.parentId).map(toStory);
+  const byId = new Map(top.map((s) => [s.id, s]));
+  for (const e of excerpts) {
+    const parent = e.parentId ? byId.get(e.parentId) : undefined;
+    if (parent) (parent.reflections ??= []).push(toStory(e));
+  }
+  for (const s of top) s.reflections?.sort((a, b) => a.date.localeCompare(b.date));
+  return top;
 }
 
 /** Every testimony as a star: anonymous ones from the sky query, readable ones joined to their excerpt. */
@@ -144,6 +158,7 @@ export const ANCHORS: Record<Theme, { x: number; y: number }> = {
   Trust: { x: 870, y: 395 },
   Work: { x: 150, y: 535 },
   "Human Agency": { x: 520, y: 540 },
+  Relationships: { x: 820, y: 580 },
 };
 
 export type Placed = { star: Star; theme: Theme; x: number; y: number };

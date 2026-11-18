@@ -25,6 +25,10 @@ import { participant } from "../functions/participant/resource";
  *                carries no reference back to the private testimony. Country
  *                and age range appear only if the editor leaves them on; a
  *                name appears only for contributors who agreed in writing.
+ * Reflections    a contributor may return to a published story and add a dated
+ *                reflection (submitReflection). It is a Testimony with
+ *                followUpOf set; once published its Excerpt has parentId, so
+ *                it appears beneath the original, which never changes.
  * skyStars       public, anonymous. One star per testimony in the landing
  *                page's constellations: its themes and month, no text.
  * WeeklyQuestion public. The Question of the Week, managed by editors.
@@ -42,8 +46,9 @@ const editorsReadOnly = (allow: Parameters<Parameters<ReturnType<typeof a.string
 ];
 
 const schema = a.schema({
-  EditorialStatus: a.enum(["NEW", "IN_REVIEW", "APPROVED", "PUBLISHED", "ARCHIVED", "WITHDRAWN"]),
-  Channel: a.enum(["OPEN", "WEEKLY_QUESTION"]),
+  // NEW is "pending review": nothing is public until an editor publishes it.
+  EditorialStatus: a.enum(["NEW", "IN_REVIEW", "APPROVED", "PUBLISHED", "ARCHIVED", "REJECTED", "WITHDRAWN"]),
+  Channel: a.enum(["OPEN", "WEEKLY_QUESTION", "REFLECTION"]),
   MediaItem: a.customType({
     key: a.string().required(),
     name: a.string(),
@@ -85,6 +90,7 @@ const schema = a.schema({
       consentResearch: a.boolean().required().authorization(editorsReadOnly),
       consentPublish: a.boolean().required().authorization(editorsReadOnly),
       consentContact: a.boolean().required().authorization(editorsReadOnly),
+      consentReview: a.boolean().authorization(editorsReadOnly), // understood review comes before publication
       consentVersion: a.string().required().authorization(editorsReadOnly),
       consentRecordedAt: a.datetime().required().authorization(editorsReadOnly),
       contactId: a.id().authorization(editorsReadOnly),
@@ -96,6 +102,8 @@ const schema = a.schema({
       consentNamedCredit: a.boolean().authorization(editorsReadOnly), // agreed in writing to be published under their name
       creditName: a.string().authorization(editorsReadOnly),
       creditLine: a.string().authorization(editorsReadOnly),
+      // A later reflection on a published story, added by its original contributor.
+      followUpOf: a.id().authorization(editorsReadOnly),
       // Editorial layer. Kept apart from the original text.
       editorialStatus: a.ref("EditorialStatus").required(),
       themes: a.string().array(),
@@ -142,6 +150,7 @@ const schema = a.schema({
       publishedAt: a.datetime().required(),
       synthetic: a.boolean(),
       featured: a.boolean(), // hand-picked by an editor for the homepage
+      parentId: a.id(), // a reflection: the excerpt of the story it returns to
     })
     .authorization((allow) => [allow.guest().to(["read"]), allow.group("ADMINS").to(["read", "update"])]),
 
@@ -272,6 +281,7 @@ const schema = a.schema({
       consentResearch: a.boolean().required(),
       consentPublish: a.boolean().required(),
       consentContact: a.boolean().required(),
+      consentReview: a.boolean(),
       consentVersion: a.string().required(),
       contactName: a.string(),
       contactEmail: a.string(),
@@ -281,6 +291,22 @@ const schema = a.schema({
       website: a.string(), // honeypot: real people leave this empty
     })
     .returns(a.ref("SubmitTestimonyResult"))
+    .authorization((allow) => [allow.guest(), allow.authenticated()])
+    .handler(a.handler.function(submitTestimony)),
+
+  // "Revisit this story": the original contributor adds a dated reflection to a
+  // published story. Their participant code proves the story is theirs.
+  submitReflection: a
+    .mutation()
+    .arguments({
+      excerptId: a.id().required(),
+      participantCode: a.string().required(),
+      text: a.string().required(),
+      consent: a.boolean().required(),
+      consentVersion: a.string().required(),
+      website: a.string(), // honeypot
+    })
+    .returns(a.boolean())
     .authorization((allow) => [allow.guest(), allow.authenticated()])
     .handler(a.handler.function(submitTestimony)),
 
@@ -297,6 +323,8 @@ const schema = a.schema({
       showAge: a.boolean(),
       credit: a.boolean(), // name the contributor; refused without consentNamedCredit
       featured: a.boolean(),
+      exactDate: a.boolean(), // show the day, not just the month (always on for credited pieces)
+      authorApprovedEdits: a.boolean(), // required when the published text differs from the original
     })
     .returns(a.ref("Excerpt"))
     .authorization((allow) => [allow.group("ADMINS")])
