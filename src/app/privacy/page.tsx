@@ -39,12 +39,12 @@ const SECTIONS: { icon: LucideIcon; title: string; body: string }[] = [
   {
     icon: Eye,
     title: "What may be published",
-    body: "Nothing is published automatically. Only if you allow it, an editor may publish a short excerpt with a broad label such as “Student”. Anything that could identify you is removed, and identifiable information is never published without your explicit permission.",
+    body: "Nothing is published automatically. Only if you allow it, an editor may publish a short excerpt. If you choose to remain anonymous, anything that could identify you is removed and a broad label such as “Student” may be used. Identifiable information is published only with your explicit permission.",
   },
   {
     icon: UserX,
-    title: "No public attribution",
-    body: "You can take part without anyone knowing it was you. We don't ask for your name, and published excerpts are never credited to a person.",
+    title: "Your choice of attribution",
+    body: "Anonymity is optional. You can choose to remain anonymous or to be identified when your testimony is published. We credit you by name only with your explicit consent. Agreeing to publication does not by itself give permission to identify you.",
   },
   {
     icon: Mail,
@@ -72,7 +72,8 @@ export default function PrivacyPage() {
   return (
     <>
       <PageHero eyebrow="Privacy & consent" title="How we treat what you share">
-        Your experience is yours. You decide whether it is published, and you can ask us to remove it at any time.
+        Your experience is yours. You decide whether it is published and whether you are identified, and you can ask us to
+        remove it at any time.
       </PageHero>
       <div className="mx-auto max-w-6xl px-5 pt-10">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -86,7 +87,9 @@ export default function PrivacyPage() {
         <section className="mt-16">
           <h2 className="font-serif text-3xl">Your separate choices</h2>
           <p className="mt-1 text-sm text-muted">
-            Each is asked on its own and recorded with every contribution (consent version {CONSENT_VERSION}).
+            In the story form, each choice is asked on its own and recorded with your contribution (consent version {CONSENT_VERSION}).
+            That form asks permission to publish an anonymized excerpt. The structured survey separately lets you choose
+            whether to remain anonymous or be identified, with your explicit consent.
           </p>
           <ol className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {[
