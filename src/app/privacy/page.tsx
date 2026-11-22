@@ -88,8 +88,9 @@ export default function PrivacyPage() {
           <h2 className="font-serif text-3xl">Your separate choices</h2>
           <p className="mt-1 text-sm text-muted">
             In the story form, each choice is asked on its own and recorded with your contribution (consent version {CONSENT_VERSION}).
-            That form asks permission to publish an anonymized excerpt. The structured survey separately lets you choose
-            whether to remain anonymous or be identified, with your explicit consent.
+            You can choose to remain anonymous or be identified when an excerpt of your contribution is published.
+            You are identified only with your explicit consent, as in the structured survey. Permission to publish
+            does not by itself give permission to identify you.
           </p>
           <ol className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {[
